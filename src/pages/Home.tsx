@@ -92,7 +92,7 @@ export default function Home() {
           sEEGplan
         </h1>
         <p style={{ marginTop: 8, marginBottom: 0, color: "var(--muted)", fontSize: 15.5 }}>
-          Interactive 2D stereoelectroencephalography planning
+          Interactive 2D stereoelectroencephalography (sEEG) planning
         </p>
 
         <div
@@ -108,7 +108,7 @@ export default function Home() {
             lineHeight: 1.45,
           }}
         >
-          <strong>Planning aid only.</strong> Not intended to replace physician judgment.
+          <strong>Planning aid only.</strong> Not approved for clinical use. Use at your own risk.
         </div>
 
         {sessionFound && (
