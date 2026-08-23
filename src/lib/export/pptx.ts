@@ -2,6 +2,7 @@ import PptxGenJS from "pptxgenjs";
 import { cropHalf, fetchImageAsDataUrl, getImageSize, rasterizeSketches } from "./capture";
 import { REF_H, REF_W } from "../constants";
 import { stripHash } from "../color";
+import { centroid } from "../geometry";
 import type { Electrode, FreehandSketch, Point } from "../../types";
 
 interface PptxOptions {
@@ -133,7 +134,22 @@ export async function exportWorkspacePptx({
       bold: true,
       color: stripHash(colorHex),
       fontFace: "Courier New",
-      fill: { color: "FFFFFF", transparency: 30 },
+      margin: 0,
+    });
+  }
+
+  function addSketchLabel(slide: PptxGenJS.Slide, pt: { x: number; y: number }, text: string, colorHex: string) {
+    const h = 0.24;
+    slide.addText(text, {
+      x: pt.x - 0.6,
+      y: pt.y - h / 2,
+      w: 1.2,
+      h,
+      align: "center",
+      fontSize: 9,
+      bold: true,
+      color: stripHash(colorHex),
+      fontFace: "Arial",
       margin: 0,
     });
   }
@@ -168,12 +184,20 @@ export async function exportWorkspacePptx({
     });
   }
 
+  function drawSketchLabels(slide: PptxGenJS.Slide, list: FreehandSketch[], toSlide: (p: Point) => { x: number; y: number }) {
+    list.forEach((sk) => {
+      const c = centroid(sk.points);
+      addSketchLabel(slide, toSlide(c), sk.label, sk.color);
+    });
+  }
+
   function addDiagramSlide(
     title: string,
     bgDataUrl: string,
     sketchOverlay: string | null,
     aspect: number,
     list: Electrode[],
+    sketchList: FreehandSketch[],
     localMap: (p: Point) => Point
   ) {
     const slide = addTitleSlide(title);
@@ -186,12 +210,26 @@ export async function exportWorkspacePptx({
       const local = localMap(p);
       return { x: rect.x + local.x * rect.w, y: rect.y + local.y * rect.h };
     };
+    drawSketchLabels(slide, sketchList, toSlide);
     drawElectrodes(slide, list, toSlide);
     return slide;
   }
 
+  function sketchInHalf(sk: FreehandSketch, half: "L" | "R"): boolean {
+    const c = centroid(sk.points);
+    return half === "L" ? c.x < 0.5 : c.x >= 0.5;
+  }
+
   // Slide 1: both hemispheres -- full diagram, native editable markers
-  addDiagramSlide("Both Hemispheres", bgFull, sketchOverlayFull, fullSize.width / fullSize.height, electrodes, (p) => p);
+  addDiagramSlide(
+    "Both Hemispheres",
+    bgFull,
+    sketchOverlayFull,
+    fullSize.width / fullSize.height,
+    electrodes,
+    sketches,
+    (p) => p
+  );
 
   // Slide 2: left hemisphere only
   addDiagramSlide(
@@ -200,6 +238,7 @@ export async function exportWorkspacePptx({
     sketchOverlayLeft,
     fullSize.width / 2 / fullSize.height,
     electrodes.filter((e) => sideOfElectrode(e) === "L"),
+    sketches.filter((sk) => sketchInHalf(sk, "L")),
     (p) => ({ x: Math.min(1, Math.max(0, p.x * 2)), y: p.y })
   );
 
@@ -210,6 +249,7 @@ export async function exportWorkspacePptx({
     sketchOverlayRight,
     fullSize.width / 2 / fullSize.height,
     electrodes.filter((e) => sideOfElectrode(e) === "R"),
+    sketches.filter((sk) => sketchInHalf(sk, "R")),
     (p) => ({ x: Math.min(1, Math.max(0, (p.x - 0.5) * 2)), y: p.y })
   );
 

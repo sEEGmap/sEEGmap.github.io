@@ -3,6 +3,7 @@ import { useStore } from "../store/useStore";
 import type { Electrode, FreehandSketch, Point } from "../types";
 import { REF_H, REF_W } from "../lib/constants";
 import { darkenHex } from "../lib/color";
+import { centroid } from "../lib/geometry";
 
 type DragTarget =
   | { kind: "electrode"; electrodeId: string; field: "entry" | "target" }
@@ -195,6 +196,7 @@ function SketchShape({
   onSelect: () => void;
 }) {
   const pts = sketch.points.map((p) => `${p.x * REF_W},${p.y * REF_H}`).join(" ");
+  const c = centroid(sketch.points);
   return (
     <g onClick={onSelect} style={{ cursor: "pointer" }}>
       <polygon
@@ -205,6 +207,22 @@ function SketchShape({
         strokeWidth={isSelected ? 3 : 1.5}
         strokeOpacity={0.9}
       />
+      <text
+        x={c.x * REF_W}
+        y={c.y * REF_H}
+        fontSize={15}
+        fontFamily="IBM Plex Mono, ui-monospace, monospace"
+        fontWeight={600}
+        fill={darkenHex(sketch.color, 0.35)}
+        stroke="#ffffff"
+        strokeWidth={3.5}
+        paintOrder="stroke"
+        textAnchor="middle"
+        dominantBaseline="middle"
+        style={{ userSelect: "none", pointerEvents: "none" }}
+      >
+        {sketch.label}
+      </text>
     </g>
   );
 }
