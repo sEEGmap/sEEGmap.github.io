@@ -26,6 +26,25 @@ export default function Planner() {
   const canvasWrapRef = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [notesOpen, setNotesOpen] = useState(false);
+  const [panelWidth, setPanelWidth] = useState(340);
+  const resizingRef = useRef<{ startX: number; startWidth: number } | null>(null);
+
+  const PANEL_MIN = 260;
+  const PANEL_MAX = 640;
+
+  const onResizePointerDown = (e: React.PointerEvent) => {
+    (e.target as Element).setPointerCapture(e.pointerId);
+    resizingRef.current = { startX: e.clientX, startWidth: panelWidth };
+  };
+  const onResizePointerMove = (e: React.PointerEvent) => {
+    if (!resizingRef.current) return;
+    const delta = resizingRef.current.startX - e.clientX; // dragging left grows the panel
+    const next = Math.min(PANEL_MAX, Math.max(PANEL_MIN, resizingRef.current.startWidth + delta));
+    setPanelWidth(next);
+  };
+  const onResizePointerUp = () => {
+    resizingRef.current = null;
+  };
 
   const baseFilename = () => (patientLabel.trim() ? patientLabel.trim().replace(/\s+/g, "_") : "seegplan_export");
 
@@ -165,7 +184,25 @@ export default function Planner() {
         </div>
       </div>
 
-      <div style={{ width: 340, flexShrink: 0, borderLeft: "1px solid var(--line)", background: "var(--surface)" }}>
+      <div
+        onPointerDown={onResizePointerDown}
+        onPointerMove={onResizePointerMove}
+        onPointerUp={onResizePointerUp}
+        onPointerLeave={onResizePointerUp}
+        title="Drag to resize"
+        style={{
+          width: 6,
+          flexShrink: 0,
+          cursor: "col-resize",
+          background: "var(--line)",
+          touchAction: "none",
+        }}
+        onMouseEnter={(e) => (e.currentTarget.style.background = "var(--accent)")}
+        onMouseLeave={(e) => {
+          if (!resizingRef.current) e.currentTarget.style.background = "var(--line)";
+        }}
+      />
+      <div style={{ width: panelWidth, flexShrink: 0, borderLeft: "1px solid var(--line)", background: "var(--surface)" }}>
         <ElectrodePanel />
       </div>
     </div>

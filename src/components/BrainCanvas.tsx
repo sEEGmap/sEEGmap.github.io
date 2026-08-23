@@ -30,6 +30,8 @@ export default function BrainCanvas() {
   const dragRef = useRef<DragTarget | null>(null);
   const [currentPath, setCurrentPath] = useState<Point[] | null>(null);
   const drawingRef = useRef(false);
+  const movedRef = useRef(false);
+  const prevSelectedRef = useRef<string | null>(null);
 
   const clientToNormalized = useCallback((clientX: number, clientY: number): Point => {
     const rect = svgRef.current!.getBoundingClientRect();
@@ -41,6 +43,7 @@ export default function BrainCanvas() {
   const onMarkerPointerMove = useCallback(
     (e: React.PointerEvent) => {
       if (!dragRef.current) return;
+      movedRef.current = true;
       const point = clientToNormalized(e.clientX, e.clientY);
       const target = dragRef.current;
       updateElectrode(target.electrodeId, { [target.field]: point } as unknown as Partial<Electrode>);
@@ -52,8 +55,18 @@ export default function BrainCanvas() {
     if (drawMode) return;
     e.stopPropagation();
     (e.target as Element).setPointerCapture(e.pointerId);
+    movedRef.current = false;
+    prevSelectedRef.current = selectedId;
     dragRef.current = target;
     setSelected(target.electrodeId);
+  };
+
+  const handleElectrodeClick = (electrodeId: string) => {
+    // A plain click (no drag movement) on an already-selected electrode toggles it off.
+    if (!movedRef.current && prevSelectedRef.current === electrodeId) {
+      setSelected(null);
+    }
+    movedRef.current = false;
   };
 
   const endDrag = () => {
@@ -136,7 +149,7 @@ export default function BrainCanvas() {
             key={sk.id}
             sketch={sk}
             isSelected={sk.id === selectedSketchId}
-            onSelect={() => !drawMode && setSelectedSketchId(sk.id)}
+            onSelect={() => !drawMode && setSelectedSketchId(selectedSketchId === sk.id ? null : sk.id)}
           />
         ))}
         {currentPath && currentPath.length > 1 && (
@@ -158,7 +171,7 @@ export default function BrainCanvas() {
               isSelected={e.id === selectedId}
               isHighlighted={e.id === hoveredId || e.id === selectedId}
               showNames={showNames}
-              onSelect={() => setSelected(e.id)}
+              onSelect={() => handleElectrodeClick(e.id)}
               onHover={(v) => setHovered(v ? e.id : null)}
               onStartDrag={startDrag}
             />

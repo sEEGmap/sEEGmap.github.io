@@ -28,7 +28,7 @@ export default function SketchPanel() {
             <div
               key={sk.id}
               className="card"
-              onClick={() => setSelectedSketchId(sk.id)}
+              onClick={() => setSelectedSketchId(isActive ? null : sk.id)}
               style={{
                 padding: "8px 10px",
                 cursor: "pointer",

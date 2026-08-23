@@ -9,7 +9,7 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { useStore } from "../store/useStore";
-import ElectrodeRow from "./ElectrodeRow";
+import ElectrodeRow, { ROW_GRID_COLUMNS } from "./ElectrodeRow";
 import AddElectrodeDialog from "./AddElectrodeDialog";
 import SketchPanel from "./SketchPanel";
 
@@ -71,7 +71,31 @@ export default function ElectrodePanel() {
         </button>
       </div>
 
-      <div className="scroll" style={{ flex: 1, minHeight: 0, padding: "4px 16px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+      {electrodes.length > 0 && (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: ROW_GRID_COLUMNS,
+            gap: 6,
+            padding: "0 8px 6px",
+            margin: "0 16px",
+            fontSize: 10.5,
+            fontWeight: 700,
+            textTransform: "uppercase",
+            letterSpacing: "0.04em",
+            color: "var(--faint)",
+            borderBottom: "1px solid var(--line-strong)",
+          }}
+        >
+          <span />
+          <span>Name</span>
+          <span>Entry</span>
+          <span>Target</span>
+          <span />
+        </div>
+      )}
+
+      <div className="scroll" style={{ flex: 1, minHeight: 0, padding: "0 16px 16px" }}>
         {filtered.length === 0 && (
           <div style={{ fontSize: 13, color: "var(--muted)", padding: "20px 4px", textAlign: "center" }}>
             {electrodes.length === 0 ? "No electrodes yet. Add your first one above." : "No matches."}
