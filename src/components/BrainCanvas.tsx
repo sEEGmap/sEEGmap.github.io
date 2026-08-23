@@ -3,11 +3,13 @@ import { useStore } from "../store/useStore";
 import type { Electrode, FreehandSketch, Point } from "../types";
 import { REF_H, REF_W } from "../lib/constants";
 import { darkenHex } from "../lib/color";
-import { centroid } from "../lib/geometry";
+import { centroid, clampTranslation } from "../lib/geometry";
 
 type DragTarget =
   | { kind: "electrode"; electrodeId: string; field: "entry" | "target" }
   | { kind: "electrode"; electrodeId: string; field: "lateralStart" | "lateralEnd" | "medialStart" | "medialEnd" };
+
+type SketchDrag = { sketchId: string; startX: number; startY: number; originalPoints: Point[] };
 
 const MIN_POINT_SPACING = 5; // svg units, thins freehand path points
 
@@ -24,6 +26,7 @@ export default function BrainCanvas() {
   const addSketch = useStore((s) => s.addSketch);
   const selectedSketchId = useStore((s) => s.selectedSketchId);
   const setSelectedSketchId = useStore((s) => s.setSelectedSketchId);
+  const updateSketch = useStore((s) => s.updateSketch);
   const sketchDraftColor = useStore((s) => s.sketchDraftColor);
 
   const svgRef = useRef<SVGSVGElement>(null);
@@ -32,6 +35,9 @@ export default function BrainCanvas() {
   const drawingRef = useRef(false);
   const movedRef = useRef(false);
   const prevSelectedRef = useRef<string | null>(null);
+  const sketchDragRef = useRef<SketchDrag | null>(null);
+  const sketchMovedRef = useRef(false);
+  const prevSelectedSketchRef = useRef<string | null>(null);
 
   const clientToNormalized = useCallback((clientX: number, clientY: number): Point => {
     const rect = svgRef.current!.getBoundingClientRect();
@@ -69,6 +75,45 @@ export default function BrainCanvas() {
     movedRef.current = false;
   };
 
+  const startSketchDrag = (e: React.PointerEvent, sketch: FreehandSketch) => {
+    if (drawMode) return;
+    e.stopPropagation();
+    (e.target as Element).setPointerCapture(e.pointerId);
+    const point = clientToNormalized(e.clientX, e.clientY);
+    sketchMovedRef.current = false;
+    prevSelectedSketchRef.current = selectedSketchId;
+    sketchDragRef.current = {
+      sketchId: sketch.id,
+      startX: point.x,
+      startY: point.y,
+      originalPoints: sketch.points,
+    };
+    setSelectedSketchId(sketch.id);
+  };
+
+  const onSketchPointerMove = useCallback(
+    (e: React.PointerEvent) => {
+      const drag = sketchDragRef.current;
+      if (!drag) return;
+      const point = clientToNormalized(e.clientX, e.clientY);
+      const rawDx = point.x - drag.startX;
+      const rawDy = point.y - drag.startY;
+      if (Math.abs(rawDx) > 0.001 || Math.abs(rawDy) > 0.001) sketchMovedRef.current = true;
+      const { x: dx, y: dy } = clampTranslation(drag.originalPoints, rawDx, rawDy);
+      const newPoints = drag.originalPoints.map((p) => ({ x: p.x + dx, y: p.y + dy }));
+      updateSketch(drag.sketchId, { points: newPoints });
+    },
+    [clientToNormalized, updateSketch]
+  );
+
+  const handleSketchClick = (sketchId: string) => {
+    if (drawMode) return;
+    if (!sketchMovedRef.current && prevSelectedSketchRef.current === sketchId) {
+      setSelectedSketchId(null);
+    }
+    sketchMovedRef.current = false;
+  };
+
   const endDrag = () => {
     dragRef.current = null;
   };
@@ -84,6 +129,7 @@ export default function BrainCanvas() {
 
   const onSvgPointerMove = (e: React.PointerEvent) => {
     if (dragRef.current) return onMarkerPointerMove(e);
+    if (sketchDragRef.current) return onSketchPointerMove(e);
     if (!drawMode || !drawingRef.current) return;
     const point = clientToNormalized(e.clientX, e.clientY);
     setCurrentPath((prev) => {
@@ -98,6 +144,7 @@ export default function BrainCanvas() {
 
   const onSvgPointerUp = () => {
     endDrag();
+    sketchDragRef.current = null;
     if (drawMode && drawingRef.current) {
       drawingRef.current = false;
       setCurrentPath((prev) => {
@@ -144,14 +191,17 @@ export default function BrainCanvas() {
         <QuadLabel x={REF_W * 0.98} y={REF_H * 0.535} text="Right Medial" anchorEnd />
 
         {/* freehand sketches (semi-transparent regions), drawn above the template, below markers */}
-        {sketches.map((sk) => (
-          <SketchShape
-            key={sk.id}
-            sketch={sk}
-            isSelected={sk.id === selectedSketchId}
-            onSelect={() => !drawMode && setSelectedSketchId(selectedSketchId === sk.id ? null : sk.id)}
-          />
-        ))}
+        <g style={{ pointerEvents: drawMode ? "none" : "auto" }}>
+          {sketches.map((sk) => (
+            <SketchShape
+              key={sk.id}
+              sketch={sk}
+              isSelected={sk.id === selectedSketchId}
+              onPointerDown={(e) => startSketchDrag(e, sk)}
+              onClick={() => handleSketchClick(sk.id)}
+            />
+          ))}
+        </g>
         {currentPath && currentPath.length > 1 && (
           <polyline
             points={currentPath.map((p) => `${p.x * REF_W},${p.y * REF_H}`).join(" ")}
@@ -202,16 +252,18 @@ function QuadLabel({ x, y, text, anchorEnd }: { x: number; y: number; text: stri
 function SketchShape({
   sketch,
   isSelected,
-  onSelect,
+  onPointerDown,
+  onClick,
 }: {
   sketch: FreehandSketch;
   isSelected: boolean;
-  onSelect: () => void;
+  onPointerDown: (e: React.PointerEvent) => void;
+  onClick: () => void;
 }) {
   const pts = sketch.points.map((p) => `${p.x * REF_W},${p.y * REF_H}`).join(" ");
   const c = centroid(sketch.points);
   return (
-    <g onClick={onSelect} style={{ cursor: "pointer" }}>
+    <g onPointerDown={onPointerDown} onClick={onClick} style={{ cursor: "grab" }}>
       <polygon
         points={pts}
         fill={sketch.color}
@@ -261,7 +313,7 @@ function ElectrodeMarks({
   const strokeW = isSelected ? 3 : isHighlighted ? 2.2 : 1.5;
   const color = isHighlighted ? darkenHex(electrode.color, 0.22) : electrode.color;
   const dotR = isHighlighted ? 13 : 10;
-  const xR = isHighlighted ? 19 : 15;
+  const xR = isHighlighted ? 13 : 10;
 
   if (electrode.type === "lateral-medial") {
     return (
@@ -394,13 +446,14 @@ function TargetX({
 }) {
   const cx = point.x * REF_W;
   const cy = point.y * REF_H;
+  const armWidth = strokeW + 4.5; // bold, short arms
   return (
     <g onPointerDown={onPointerDown} style={{ cursor: "grab" }}>
-      <circle cx={cx} cy={cy} r={r + 4} fill="transparent" />
-      <line x1={cx - r} y1={cy - r} x2={cx + r} y2={cy + r} stroke={color} strokeWidth={strokeW + 3} strokeLinecap="round" />
-      <line x1={cx - r} y1={cy + r} x2={cx + r} y2={cy - r} stroke={color} strokeWidth={strokeW + 3} strokeLinecap="round" />
-      <line x1={cx - r} y1={cy - r} x2={cx + r} y2={cy + r} stroke="#fff" strokeWidth={1.2} strokeLinecap="round" />
-      <line x1={cx - r} y1={cy + r} x2={cx + r} y2={cy - r} stroke="#fff" strokeWidth={1.2} strokeLinecap="round" />
+      <circle cx={cx} cy={cy} r={r + 6} fill="transparent" />
+      <line x1={cx - r} y1={cy - r} x2={cx + r} y2={cy + r} stroke={color} strokeWidth={armWidth} strokeLinecap="round" />
+      <line x1={cx - r} y1={cy + r} x2={cx + r} y2={cy - r} stroke={color} strokeWidth={armWidth} strokeLinecap="round" />
+      <line x1={cx - r} y1={cy - r} x2={cx + r} y2={cy + r} stroke="#fff" strokeWidth={1.4} strokeLinecap="round" />
+      <line x1={cx - r} y1={cy + r} x2={cx + r} y2={cy - r} stroke="#fff" strokeWidth={1.4} strokeLinecap="round" />
     </g>
   );
 }
