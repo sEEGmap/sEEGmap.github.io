@@ -9,11 +9,19 @@ import { saveSeegplanFile } from "../lib/export/seegplan";
 
 export default function Planner() {
   const electrodes = useStore((s) => s.electrodes);
+  const sketches = useStore((s) => s.sketches);
   const patientLabel = useStore((s) => s.patientLabel);
   const planNotes = useStore((s) => s.planNotes);
   const setPatientLabel = useStore((s) => s.setPatientLabel);
   const setPlanNotes = useStore((s) => s.setPlanNotes);
   const exportPlanFile = useStore((s) => s.exportPlanFile);
+  const showNames = useStore((s) => s.showNames);
+  const toggleShowNames = useStore((s) => s.toggleShowNames);
+  const drawMode = useStore((s) => s.drawMode);
+  const setDrawMode = useStore((s) => s.setDrawMode);
+  const sketchDraftColor = useStore((s) => s.sketchDraftColor);
+  const sketchDraftOpacity = useStore((s) => s.sketchDraftOpacity);
+  const setSketchDraft = useStore((s) => s.setSketchDraft);
 
   const canvasWrapRef = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -37,10 +45,11 @@ export default function Planner() {
         });
       } else {
         await exportWorkspacePptx({
-          node: canvasWrapRef.current,
           electrodes,
+          sketches,
           patientLabel,
           planNotes,
+          showNames,
           filename: baseFilename(),
         });
       }
@@ -80,12 +89,40 @@ export default function Planner() {
               borderRadius: 8,
               padding: "7px 10px",
               fontSize: 13,
-              width: 260,
+              width: 240,
             }}
           />
           <button className="btn btn-sm" onClick={() => setNotesOpen((v) => !v)}>
             Plan Notes
           </button>
+          <ToggleButton active={showNames} onClick={toggleShowNames}>
+            Show Names
+          </ToggleButton>
+          <ToggleButton active={drawMode} onClick={() => setDrawMode(!drawMode)}>
+            ✏️ Draw Area
+          </ToggleButton>
+          {drawMode && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--surface-2)", padding: "5px 10px", borderRadius: 8 }}>
+              <input
+                type="color"
+                value={sketchDraftColor}
+                onChange={(e) => setSketchDraft({ color: e.target.value })}
+                style={{ width: 28, height: 24, padding: 1, cursor: "pointer" }}
+                title="Sketch color"
+              />
+              <input
+                type="range"
+                min={0.1}
+                max={0.8}
+                step={0.05}
+                value={sketchDraftOpacity}
+                onChange={(e) => setSketchDraft({ opacity: Number(e.target.value) })}
+                title="Sketch opacity"
+                style={{ width: 80 }}
+              />
+              <span style={{ fontSize: 11, color: "var(--muted)" }}>Trace freehand on canvas</span>
+            </div>
+          )}
           <div style={{ flex: 1 }} />
           <button className="btn btn-sm" onClick={handleSaveSeegplan}>
             Save .seegplan
@@ -132,5 +169,21 @@ export default function Planner() {
         <ElectrodePanel />
       </div>
     </div>
+  );
+}
+
+function ToggleButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      className="btn btn-sm"
+      onClick={onClick}
+      style={{
+        background: active ? "var(--accent)" : "var(--surface)",
+        borderColor: active ? "var(--accent)" : "var(--line-strong)",
+        color: active ? "var(--accent-ink)" : "var(--ink)",
+      }}
+    >
+      {children}
+    </button>
   );
 }

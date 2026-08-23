@@ -64,9 +64,11 @@ export default function ElectrodeRow({ electrode }: { electrode: Electrode }) {
           alignItems: "center",
           gap: 8,
           padding: "10px 10px",
-          borderLeft: `3px solid ${electrode.color}`,
+          borderLeft: `${isActive ? 6 : 3}px solid ${electrode.color}`,
           borderRadius: "var(--radius-lg)",
           background: isActive ? "var(--accent-soft)" : "transparent",
+          boxShadow: isActive ? "inset 0 0 0 1px var(--accent)" : "none",
+          transition: "border-left-width 0.1s ease, background 0.1s ease",
         }}
       >
         <span {...attributes} {...listeners} style={{ cursor: "grab", display: "flex", touchAction: "none" }}>
@@ -91,17 +93,14 @@ export default function ElectrodeRow({ electrode }: { electrode: Electrode }) {
           }}
         />
 
-        <div style={{ flex: 1, minWidth: 0, fontSize: 12.5, color: "var(--muted)" }}>
+        <div style={{ flex: 1, minWidth: 0, fontSize: 12, color: "var(--muted)", lineHeight: 1.5 }}>
           <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {electrode.targetName || electrode.entryName ? (
-              <>
-                {electrode.entryName && <span>{electrode.entryName}</span>}
-                {electrode.entryName && electrode.targetName && <span> → </span>}
-                {electrode.targetName && <span>{electrode.targetName}</span>}
-              </>
-            ) : (
-              <span style={{ opacity: 0.6 }}>No entry/target labels</span>
-            )}
+            <span style={{ fontWeight: 600, color: isActive ? "var(--ink)" : "var(--muted)" }}>Entry: </span>
+            {electrode.entryName || "—"}
+          </div>
+          <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <span style={{ fontWeight: 600, color: isActive ? "var(--ink)" : "var(--muted)" }}>Target: </span>
+            {electrode.targetName || "—"}
           </div>
         </div>
 

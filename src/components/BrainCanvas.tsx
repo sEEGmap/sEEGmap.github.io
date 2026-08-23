@@ -1,23 +1,34 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useStore } from "../store/useStore";
-import type { Electrode, Point } from "../types";
-
-const REF_W = 1770;
-const REF_H = 1281;
+import type { Electrode, FreehandSketch, Point } from "../types";
+import { REF_H, REF_W } from "../lib/constants";
+import { darkenHex } from "../lib/color";
 
 type DragTarget =
-  | { electrodeId: string; field: "entry" | "target" }
-  | { electrodeId: string; field: "lateralStart" | "lateralEnd" | "medialStart" | "medialEnd" };
+  | { kind: "electrode"; electrodeId: string; field: "entry" | "target" }
+  | { kind: "electrode"; electrodeId: string; field: "lateralStart" | "lateralEnd" | "medialStart" | "medialEnd" };
+
+const MIN_POINT_SPACING = 5; // svg units, thins freehand path points
 
 export default function BrainCanvas() {
   const electrodes = useStore((s) => s.electrodes);
+  const sketches = useStore((s) => s.sketches);
   const selectedId = useStore((s) => s.selectedId);
   const hoveredId = useStore((s) => s.hoveredId);
   const setSelected = useStore((s) => s.setSelected);
   const setHovered = useStore((s) => s.setHovered);
   const updateElectrode = useStore((s) => s.updateElectrode);
+  const showNames = useStore((s) => s.showNames);
+  const drawMode = useStore((s) => s.drawMode);
+  const addSketch = useStore((s) => s.addSketch);
+  const selectedSketchId = useStore((s) => s.selectedSketchId);
+  const setSelectedSketchId = useStore((s) => s.setSelectedSketchId);
+  const sketchDraftColor = useStore((s) => s.sketchDraftColor);
+
   const svgRef = useRef<SVGSVGElement>(null);
   const dragRef = useRef<DragTarget | null>(null);
+  const [currentPath, setCurrentPath] = useState<Point[] | null>(null);
+  const drawingRef = useRef(false);
 
   const clientToNormalized = useCallback((clientX: number, clientY: number): Point => {
     const rect = svgRef.current!.getBoundingClientRect();
@@ -26,7 +37,7 @@ export default function BrainCanvas() {
     return { x, y };
   }, []);
 
-  const onPointerMove = useCallback(
+  const onMarkerPointerMove = useCallback(
     (e: React.PointerEvent) => {
       if (!dragRef.current) return;
       const point = clientToNormalized(e.clientX, e.clientY);
@@ -37,6 +48,7 @@ export default function BrainCanvas() {
   );
 
   const startDrag = (e: React.PointerEvent, target: DragTarget) => {
+    if (drawMode) return;
     e.stopPropagation();
     (e.target as Element).setPointerCapture(e.pointerId);
     dragRef.current = target;
@@ -45,6 +57,40 @@ export default function BrainCanvas() {
 
   const endDrag = () => {
     dragRef.current = null;
+  };
+
+  const onSvgPointerDown = (e: React.PointerEvent) => {
+    if (!drawMode) return;
+    (e.target as Element).setPointerCapture(e.pointerId);
+    const point = clientToNormalized(e.clientX, e.clientY);
+    drawingRef.current = true;
+    setCurrentPath([point]);
+    setSelectedSketchId(null);
+  };
+
+  const onSvgPointerMove = (e: React.PointerEvent) => {
+    if (dragRef.current) return onMarkerPointerMove(e);
+    if (!drawMode || !drawingRef.current) return;
+    const point = clientToNormalized(e.clientX, e.clientY);
+    setCurrentPath((prev) => {
+      if (!prev) return [point];
+      const last = prev[prev.length - 1];
+      const dx = (last.x - point.x) * REF_W;
+      const dy = (last.y - point.y) * REF_H;
+      if (Math.sqrt(dx * dx + dy * dy) < MIN_POINT_SPACING) return prev;
+      return [...prev, point];
+    });
+  };
+
+  const onSvgPointerUp = () => {
+    endDrag();
+    if (drawMode && drawingRef.current) {
+      drawingRef.current = false;
+      setCurrentPath((prev) => {
+        if (prev && prev.length >= 3) addSketch(prev);
+        return null;
+      });
+    }
   };
 
   return (
@@ -63,10 +109,17 @@ export default function BrainCanvas() {
         preserveAspectRatio="none"
         width="100%"
         height="100%"
-        onPointerMove={onPointerMove}
-        onPointerUp={endDrag}
-        onPointerLeave={endDrag}
-        style={{ display: "block", background: "#fff", borderRadius: 14, border: "1px solid var(--line)" }}
+        onPointerDown={onSvgPointerDown}
+        onPointerMove={onSvgPointerMove}
+        onPointerUp={onSvgPointerUp}
+        onPointerLeave={onSvgPointerUp}
+        style={{
+          display: "block",
+          background: "#fff",
+          borderRadius: 14,
+          border: "1px solid var(--line)",
+          cursor: drawMode ? "crosshair" : "default",
+        }}
       >
         <image href="./brain-template.png" x={0} y={0} width={REF_W} height={REF_H} />
 
@@ -76,17 +129,40 @@ export default function BrainCanvas() {
         <QuadLabel x={REF_W * 0.02} y={REF_H * 0.535} text="Left Medial" />
         <QuadLabel x={REF_W * 0.98} y={REF_H * 0.535} text="Right Medial" anchorEnd />
 
-        {electrodes.map((e) => (
-          <ElectrodeMarks
-            key={e.id}
-            electrode={e}
-            isSelected={e.id === selectedId}
-            isHighlighted={e.id === hoveredId || e.id === selectedId}
-            onSelect={() => setSelected(e.id)}
-            onHover={(v) => setHovered(v ? e.id : null)}
-            onStartDrag={startDrag}
+        {/* freehand sketches (semi-transparent regions), drawn above the template, below markers */}
+        {sketches.map((sk) => (
+          <SketchShape
+            key={sk.id}
+            sketch={sk}
+            isSelected={sk.id === selectedSketchId}
+            onSelect={() => !drawMode && setSelectedSketchId(sk.id)}
           />
         ))}
+        {currentPath && currentPath.length > 1 && (
+          <polyline
+            points={currentPath.map((p) => `${p.x * REF_W},${p.y * REF_H}`).join(" ")}
+            fill="none"
+            stroke={sketchDraftColor}
+            strokeWidth={3}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        )}
+
+        <g style={{ pointerEvents: drawMode ? "none" : "auto" }}>
+          {electrodes.map((e) => (
+            <ElectrodeMarks
+              key={e.id}
+              electrode={e}
+              isSelected={e.id === selectedId}
+              isHighlighted={e.id === hoveredId || e.id === selectedId}
+              showNames={showNames}
+              onSelect={() => setSelected(e.id)}
+              onHover={(v) => setHovered(v ? e.id : null)}
+              onStartDrag={startDrag}
+            />
+          ))}
+        </g>
       </svg>
     </div>
   );
@@ -109,10 +185,35 @@ function QuadLabel({ x, y, text, anchorEnd }: { x: number; y: number; text: stri
   );
 }
 
+function SketchShape({
+  sketch,
+  isSelected,
+  onSelect,
+}: {
+  sketch: FreehandSketch;
+  isSelected: boolean;
+  onSelect: () => void;
+}) {
+  const pts = sketch.points.map((p) => `${p.x * REF_W},${p.y * REF_H}`).join(" ");
+  return (
+    <g onClick={onSelect} style={{ cursor: "pointer" }}>
+      <polygon
+        points={pts}
+        fill={sketch.color}
+        fillOpacity={sketch.opacity}
+        stroke={isSelected ? darkenHex(sketch.color, 0.25) : sketch.color}
+        strokeWidth={isSelected ? 3 : 1.5}
+        strokeOpacity={0.9}
+      />
+    </g>
+  );
+}
+
 function ElectrodeMarks({
   electrode,
   isSelected,
   isHighlighted,
+  showNames,
   onSelect,
   onHover,
   onStartDrag,
@@ -120,61 +221,103 @@ function ElectrodeMarks({
   electrode: Electrode;
   isSelected: boolean;
   isHighlighted: boolean;
+  showNames: boolean;
   onSelect: () => void;
   onHover: (v: boolean) => void;
   onStartDrag: (e: React.PointerEvent, target: DragTarget) => void;
 }) {
   const opacity = isHighlighted ? 1 : 0.85;
   const strokeW = isSelected ? 3 : isHighlighted ? 2.2 : 1.5;
+  const color = isHighlighted ? darkenHex(electrode.color, 0.22) : electrode.color;
+  const dotR = isHighlighted ? 13 : 10;
+  const xR = isHighlighted ? 19 : 15;
 
   if (electrode.type === "lateral-medial") {
     return (
       <g opacity={opacity} onMouseEnter={() => onHover(true)} onMouseLeave={() => onHover(false)} onClick={onSelect}>
         <EntryDot
           point={electrode.entry}
-          color={electrode.color}
+          color={color}
           strokeW={strokeW}
-          onPointerDown={(e) => onStartDrag(e, { electrodeId: electrode.id, field: "entry" })}
+          r={dotR}
+          onPointerDown={(e) => onStartDrag(e, { kind: "electrode", electrodeId: electrode.id, field: "entry" })}
         />
         <TargetX
           point={electrode.target}
-          color={electrode.color}
+          color={color}
           strokeW={strokeW}
-          onPointerDown={(e) => onStartDrag(e, { electrodeId: electrode.id, field: "target" })}
+          r={xR}
+          onPointerDown={(e) => onStartDrag(e, { kind: "electrode", electrodeId: electrode.id, field: "target" })}
         />
+        {showNames && (
+          <>
+            <NameLabel point={electrode.entry} text={electrode.name} color={color} dy={dotR + 16} />
+            <NameLabel point={electrode.target} text={electrode.name} color={color} dy={xR + 16} />
+          </>
+        )}
       </g>
     );
   }
 
   return (
     <g opacity={opacity} onMouseEnter={() => onHover(true)} onMouseLeave={() => onHover(false)} onClick={onSelect}>
-      <TrajectoryLine a={electrode.lateralStart} b={electrode.lateralEnd} color={electrode.color} strokeW={strokeW} />
+      <TrajectoryLine a={electrode.lateralStart} b={electrode.lateralEnd} color={color} strokeW={strokeW} />
       <EntryDot
         point={electrode.lateralStart}
-        color={electrode.color}
+        color={color}
         strokeW={strokeW}
-        onPointerDown={(e) => onStartDrag(e, { electrodeId: electrode.id, field: "lateralStart" })}
+        r={dotR}
+        onPointerDown={(e) => onStartDrag(e, { kind: "electrode", electrodeId: electrode.id, field: "lateralStart" })}
       />
       <EntryDot
         point={electrode.lateralEnd}
-        color={electrode.color}
+        color={color}
         strokeW={strokeW}
-        onPointerDown={(e) => onStartDrag(e, { electrodeId: electrode.id, field: "lateralEnd" })}
+        r={dotR}
+        onPointerDown={(e) => onStartDrag(e, { kind: "electrode", electrodeId: electrode.id, field: "lateralEnd" })}
       />
-      <TrajectoryLine a={electrode.medialStart} b={electrode.medialEnd} color={electrode.color} strokeW={strokeW} />
+      <TrajectoryLine a={electrode.medialStart} b={electrode.medialEnd} color={color} strokeW={strokeW} />
       <TargetX
         point={electrode.medialStart}
-        color={electrode.color}
+        color={color}
         strokeW={strokeW}
-        onPointerDown={(e) => onStartDrag(e, { electrodeId: electrode.id, field: "medialStart" })}
+        r={xR}
+        onPointerDown={(e) => onStartDrag(e, { kind: "electrode", electrodeId: electrode.id, field: "medialStart" })}
       />
       <TargetX
         point={electrode.medialEnd}
-        color={electrode.color}
+        color={color}
         strokeW={strokeW}
-        onPointerDown={(e) => onStartDrag(e, { electrodeId: electrode.id, field: "medialEnd" })}
+        r={xR}
+        onPointerDown={(e) => onStartDrag(e, { kind: "electrode", electrodeId: electrode.id, field: "medialEnd" })}
       />
+      {showNames && (
+        <>
+          <NameLabel point={electrode.lateralStart} text={electrode.name} color={color} dy={-(dotR + 10)} />
+          <NameLabel point={electrode.medialStart} text={electrode.name} color={color} dy={-(xR + 10)} />
+        </>
+      )}
     </g>
+  );
+}
+
+function NameLabel({ point, text, color, dy }: { point: Point; text: string; color: string; dy: number }) {
+  return (
+    <text
+      x={point.x * REF_W}
+      y={point.y * REF_H + dy}
+      fontSize={15}
+      fontFamily="IBM Plex Mono, ui-monospace, monospace"
+      fontWeight={600}
+      fill={color}
+      stroke="#ffffff"
+      strokeWidth={3.5}
+      paintOrder="stroke"
+      textAnchor="middle"
+      style={{ userSelect: "none", pointerEvents: "none" }}
+    >
+      {text}
+    </text>
   );
 }
 
@@ -182,18 +325,20 @@ function EntryDot({
   point,
   color,
   strokeW,
+  r,
   onPointerDown,
 }: {
   point: Point;
   color: string;
   strokeW: number;
+  r: number;
   onPointerDown: (e: React.PointerEvent) => void;
 }) {
   return (
     <circle
       cx={point.x * REF_W}
       cy={point.y * REF_H}
-      r={10}
+      r={r}
       fill={color}
       stroke="#fff"
       strokeWidth={strokeW}
@@ -207,16 +352,17 @@ function TargetX({
   point,
   color,
   strokeW,
+  r,
   onPointerDown,
 }: {
   point: Point;
   color: string;
   strokeW: number;
+  r: number;
   onPointerDown: (e: React.PointerEvent) => void;
 }) {
   const cx = point.x * REF_W;
   const cy = point.y * REF_H;
-  const r = 15;
   return (
     <g onPointerDown={onPointerDown} style={{ cursor: "grab" }}>
       <circle cx={cx} cy={cy} r={r + 4} fill="transparent" />
@@ -241,5 +387,3 @@ function TrajectoryLine({ a, b, color, strokeW }: { a: Point; b: Point; color: s
     />
   );
 }
-
-export { REF_W, REF_H };

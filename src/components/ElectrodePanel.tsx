@@ -11,6 +11,7 @@ import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { useStore } from "../store/useStore";
 import ElectrodeRow from "./ElectrodeRow";
 import AddElectrodeDialog from "./AddElectrodeDialog";
+import SketchPanel from "./SketchPanel";
 
 export default function ElectrodePanel() {
   const electrodes = useStore((s) => s.electrodes);
@@ -83,6 +84,7 @@ export default function ElectrodePanel() {
             ))}
           </SortableContext>
         </DndContext>
+        <SketchPanel />
       </div>
 
       {showAdd && <AddElectrodeDialog onClose={() => setShowAdd(false)} />}

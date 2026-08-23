@@ -7,7 +7,7 @@ https://seegplan.github.io/sEEGplan/
 
 **Planning aid only. Not intended to replace physician judgment.**
 
-Build using Anthropic Claude Sonnet 5 (Medium) - beware of errors
+Build using Anthropic Claude Sonnet 5 (Medium) - beware of errors.
 
 ## Stack
 

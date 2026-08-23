@@ -1,5 +1,5 @@
 import Dexie, { type Table } from "dexie";
-import type { AnatomyRecord, AppConfig, Electrode } from "../types";
+import type { AnatomyRecord, Electrode, FreehandSketch } from "../types";
 
 export interface SessionMeta {
   key: string; // fixed key "current"
@@ -8,16 +8,11 @@ export interface SessionMeta {
   updatedAt: string;
 }
 
-export interface ConfigOverride {
-  key: string; // fixed key "current"
-  config: AppConfig;
-}
-
 class SeegPlanDB extends Dexie {
   electrodes!: Table<Electrode, string>;
   anatomy!: Table<AnatomyRecord, string>;
   session!: Table<SessionMeta, string>;
-  configOverride!: Table<ConfigOverride, string>;
+  sketches!: Table<FreehandSketch, string>;
 
   constructor() {
     super("seegplan-db");
@@ -32,19 +27,28 @@ class SeegPlanDB extends Dexie {
       session: "key",
       configOverride: "key",
     });
+    this.version(3)
+      .stores({
+        electrodes: "id, order, type, name",
+        anatomy: "id, targetName, category",
+        session: "key",
+        configOverride: null,
+        sketches: "id",
+      });
   }
 }
 
 export const db = new SeegPlanDB();
 
 export async function hasStoredSession(): Promise<boolean> {
-  const count = await db.electrodes.count();
-  return count > 0;
+  const [electrodeCount, sketchCount] = await Promise.all([db.electrodes.count(), db.sketches.count()]);
+  return electrodeCount > 0 || sketchCount > 0;
 }
 
 export async function clearSession(): Promise<void> {
-  await db.transaction("rw", db.electrodes, db.session, async () => {
+  await db.transaction("rw", db.electrodes, db.session, db.sketches, async () => {
     await db.electrodes.clear();
+    await db.sketches.clear();
     await db.session.clear();
   });
 }

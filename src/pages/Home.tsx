@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useStore } from "../store/useStore";
 import { hasStoredSession, clearSession } from "../db/db";
-import { loadEffectiveConfig } from "../lib/config";
 import type { AppConfig, SeegPlanFile } from "../types";
 import Mark from "../components/Mark";
 
@@ -18,7 +17,11 @@ export default function Home() {
   const [importError, setImportError] = useState<string | null>(null);
 
   useEffect(() => {
-    loadEffectiveConfig().then(setConfig);
+    const base = import.meta.env.BASE_URL;
+    fetch(`${base}app-config.json`)
+      .then((r) => r.json())
+      .then(setConfig)
+      .catch(() => setConfig(null));
     hasStoredSession().then(setSessionFound);
   }, []);
 
@@ -92,7 +95,7 @@ export default function Home() {
           sEEGplan
         </h1>
         <p style={{ marginTop: 8, marginBottom: 0, color: "var(--muted)", fontSize: 15.5 }}>
-          Interactive 2D stereoelectroencephalography (sEEG) planning
+          Interactive 2D stereoelectroencephalography planning
         </p>
 
         <div
@@ -108,7 +111,7 @@ export default function Home() {
             lineHeight: 1.45,
           }}
         >
-          <strong>Planning aid only.</strong> Not approved for clinical use. Use at your own risk.
+          <strong>Planning aid only.</strong> Not intended to replace physician judgment.
         </div>
 
         {sessionFound && (

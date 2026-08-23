@@ -34,6 +34,16 @@ export interface SuperiorInferiorElectrode extends BaseElectrode {
 
 export type Electrode = LateralMedialElectrode | SuperiorInferiorElectrode;
 
+export interface FreehandSketch {
+  id: string;
+  label: string;
+  points: Point[];
+  color: string;
+  opacity: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface AnatomyRecord {
   id: string;
   targetName: string;
@@ -88,6 +98,7 @@ export interface SeegPlanFile {
   patientLabel: string;
   planNotes: string;
   electrodes: Electrode[];
+  sketches: FreehandSketch[];
 }
 
 export const CURRENT_FORMAT_VERSION = "1.0";

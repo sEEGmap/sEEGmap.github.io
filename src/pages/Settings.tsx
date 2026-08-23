@@ -1,32 +1,12 @@
-import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useStore } from "../store/useStore";
-import { clearConfigOverride, loadEffectiveConfig, saveConfigOverride } from "../lib/config";
 import { clearSession } from "../db/db";
-import type { AppConfig } from "../types";
 
 export default function Settings() {
   const navigate = useNavigate();
   const newPlan = useStore((s) => s.newPlan);
   const electrodeCount = useStore((s) => s.electrodes.length);
-  const [config, setConfig] = useState<AppConfig>({ institution: "", contact: "", email: "", phone: "" });
-  const [saved, setSaved] = useState(false);
-
-  useEffect(() => {
-    loadEffectiveConfig().then(setConfig);
-  }, []);
-
-  const save = async () => {
-    await saveConfigOverride(config);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 1800);
-  };
-
-  const resetToDefaults = async () => {
-    await clearConfigOverride();
-    const fresh = await loadEffectiveConfig();
-    setConfig(fresh);
-  };
+  const sketchCount = useStore((s) => s.sketches.length);
 
   const handleDiscardSession = async () => {
     if (!window.confirm("This clears the saved plan from this browser. Continue?")) return;
@@ -42,41 +22,6 @@ export default function Settings() {
       </p>
 
       <section className="card" style={{ padding: 20, marginTop: 20 }}>
-        <h2 style={{ fontSize: 15, margin: "0 0 12px" }}>Contact / institution</h2>
-        <p style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 0, marginBottom: 14 }}>
-          Shown on the Home screen. To change the shipped default for everyone deploying this site, edit{" "}
-          <span className="mono">public/app-config.json</span> instead.
-        </p>
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <div className="field">
-            <label>Institution</label>
-            <input value={config.institution} onChange={(e) => setConfig({ ...config, institution: e.target.value })} />
-          </div>
-          <div className="field">
-            <label>Contact name</label>
-            <input value={config.contact} onChange={(e) => setConfig({ ...config, contact: e.target.value })} />
-          </div>
-          <div className="field">
-            <label>Email</label>
-            <input value={config.email} onChange={(e) => setConfig({ ...config, email: e.target.value })} />
-          </div>
-          <div className="field">
-            <label>Phone</label>
-            <input value={config.phone} onChange={(e) => setConfig({ ...config, phone: e.target.value })} />
-          </div>
-          <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
-            <button className="btn btn-primary btn-sm" onClick={save}>
-              Save
-            </button>
-            <button className="btn btn-sm" onClick={resetToDefaults}>
-              Reset to file default
-            </button>
-            {saved && <span style={{ fontSize: 12.5, color: "var(--accent)", alignSelf: "center" }}>Saved.</span>}
-          </div>
-        </div>
-      </section>
-
-      <section className="card" style={{ padding: 20, marginTop: 16 }}>
         <h2 style={{ fontSize: 15, margin: "0 0 8px" }}>Anatomical library</h2>
         <p style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 0, marginBottom: 12 }}>
           Manage the searchable target/entry list used by the "By Target" add workflow.
@@ -89,7 +34,8 @@ export default function Settings() {
       <section className="card" style={{ padding: 20, marginTop: 16 }}>
         <h2 style={{ fontSize: 15, margin: "0 0 8px" }}>Session</h2>
         <p style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 0, marginBottom: 12 }}>
-          {electrodeCount} electrode{electrodeCount === 1 ? "" : "s"} currently saved in this browser's storage.
+          {electrodeCount} electrode{electrodeCount === 1 ? "" : "s"} and {sketchCount} sketched area
+          {sketchCount === 1 ? "" : "s"} currently saved in this browser's storage.
         </p>
         <div style={{ display: "flex", gap: 8 }}>
           <button className="btn btn-sm" onClick={() => navigate("/planner")}>
@@ -100,6 +46,11 @@ export default function Settings() {
           </button>
         </div>
       </section>
+
+      <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 20 }}>
+        Contact / institution details on the Home screen are configured in{" "}
+        <span className="mono">public/app-config.json</span> at deploy time.
+      </p>
     </div>
   );
 }

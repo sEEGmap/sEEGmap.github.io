@@ -6,7 +6,9 @@ import type {
   AnatomyRecord,
   BrainRegionsConfig,
   Electrode,
+  FreehandSketch,
   LateralMedialElectrode,
+  Point,
   SIRegionsConfig,
   SeegPlanFile,
   SuperiorInferiorElectrode,
@@ -40,12 +42,24 @@ interface StoreState {
 
   // plan
   electrodes: Electrode[];
+  sketches: FreehandSketch[];
   patientLabel: string;
   planNotes: string;
   selectedId: string | null;
   hoveredId: string | null;
   searchQuery: string;
   hydrated: boolean;
+
+  // canvas ui state
+  showNames: boolean;
+  toggleShowNames: () => void;
+  drawMode: boolean;
+  setDrawMode: (v: boolean) => void;
+  sketchDraftColor: string;
+  sketchDraftOpacity: number;
+  setSketchDraft: (patch: { color?: string; opacity?: number }) => void;
+  selectedSketchId: string | null;
+  setSelectedSketchId: (id: string | null) => void;
 
   // actions: bootstrap
   loadConfigs: () => Promise<void>;
@@ -63,6 +77,11 @@ interface StoreState {
   setSelected: (id: string | null) => void;
   setHovered: (id: string | null) => void;
   setSearchQuery: (q: string) => void;
+
+  // actions: sketches
+  addSketch: (points: Point[]) => void;
+  updateSketch: (id: string, patch: Partial<FreehandSketch>) => void;
+  removeSketch: (id: string) => void;
 
   // actions: anatomy library
   addAnatomyRecord: (rec: Omit<AnatomyRecord, "id">) => void;
@@ -83,9 +102,11 @@ function scheduleAutosave(get: () => StoreState) {
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(async () => {
     const s = get();
-    await db.transaction("rw", db.electrodes, db.session, async () => {
+    await db.transaction("rw", db.electrodes, db.session, db.sketches, async () => {
       await db.electrodes.clear();
       await db.electrodes.bulkAdd(s.electrodes);
+      await db.sketches.clear();
+      await db.sketches.bulkAdd(s.sketches);
       await db.session.put({
         key: "current",
         patientLabel: s.patientLabel,
@@ -101,12 +122,27 @@ export const useStore = create<StoreState>((set, get) => ({
   siRegions: null,
   anatomy: [],
   electrodes: [],
+  sketches: [],
   patientLabel: "",
   planNotes: "",
   selectedId: null,
   hoveredId: null,
   searchQuery: "",
   hydrated: false,
+
+  showNames: true,
+  toggleShowNames: () => set((s) => ({ showNames: !s.showNames })),
+  drawMode: false,
+  setDrawMode: (v) => set({ drawMode: v, selectedSketchId: v ? null : get().selectedSketchId }),
+  sketchDraftColor: "#D68910",
+  sketchDraftOpacity: 0.35,
+  setSketchDraft: (patch) =>
+    set((s) => ({
+      sketchDraftColor: patch.color ?? s.sketchDraftColor,
+      sketchDraftOpacity: patch.opacity ?? s.sketchDraftOpacity,
+    })),
+  selectedSketchId: null,
+  setSelectedSketchId: (id) => set({ selectedSketchId: id }),
 
   loadConfigs: async () => {
     const base = import.meta.env.BASE_URL;
@@ -143,12 +179,14 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   hydrateFromDB: async () => {
-    const [electrodes, session] = await Promise.all([
+    const [electrodes, sketches, session] = await Promise.all([
       db.electrodes.orderBy("order").toArray(),
+      db.sketches.toArray(),
       db.session.get("current"),
     ]);
     set({
       electrodes,
+      sketches,
       patientLabel: session?.patientLabel ?? "",
       planNotes: session?.planNotes ?? "",
       hydrated: true,
@@ -243,10 +281,12 @@ export const useStore = create<StoreState>((set, get) => ({
       };
     }
 
+    // Fallback: allow free-form names that don't fit the standard nomenclature
+    // (e.g. an electrode named for a lesion it passes through). Placed manually.
+    s.addLateralMedial({ name });
     return {
-      ok: false,
-      message:
-        "Couldn't parse that name. Use a 4-letter code like LTMI, or an exact superior-inferior code like LAI.",
+      ok: true,
+      message: `Added "${name}" manually -- drag the entry (●) and target (✕) markers into place.`,
     };
   },
 
@@ -319,6 +359,39 @@ export const useStore = create<StoreState>((set, get) => ({
   setHovered: (id) => set({ hoveredId: id }),
   setSearchQuery: (q) => set({ searchQuery: q }),
 
+  addSketch: (points) => {
+    const s = get();
+    if (points.length < 3) return;
+    const sketch: FreehandSketch = {
+      id: uuid(),
+      label: `Area ${s.sketches.length + 1}`,
+      points,
+      color: s.sketchDraftColor,
+      opacity: s.sketchDraftOpacity,
+      createdAt: nowISO(),
+      updatedAt: nowISO(),
+    };
+    set({ sketches: [...s.sketches, sketch], selectedSketchId: sketch.id });
+    scheduleAutosave(get);
+  },
+
+  updateSketch: (id, patch) => {
+    const s = get();
+    set({
+      sketches: s.sketches.map((sk) => (sk.id === id ? { ...sk, ...patch, updatedAt: nowISO() } : sk)),
+    });
+    scheduleAutosave(get);
+  },
+
+  removeSketch: (id) => {
+    const s = get();
+    set({
+      sketches: s.sketches.filter((sk) => sk.id !== id),
+      selectedSketchId: s.selectedSketchId === id ? null : s.selectedSketchId,
+    });
+    scheduleAutosave(get);
+  },
+
   addAnatomyRecord: (rec) => {
     const s = get();
     const record: AnatomyRecord = { ...rec, id: uuid() };
@@ -348,19 +421,22 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   newPlan: async () => {
-    await db.transaction("rw", db.electrodes, db.session, async () => {
+    await db.transaction("rw", db.electrodes, db.session, db.sketches, async () => {
       await db.electrodes.clear();
+      await db.sketches.clear();
       await db.session.clear();
     });
-    set({ electrodes: [], patientLabel: "", planNotes: "", selectedId: null });
+    set({ electrodes: [], sketches: [], patientLabel: "", planNotes: "", selectedId: null, selectedSketchId: null });
   },
 
   loadPlanFile: (file) => {
     set({
       electrodes: file.electrodes,
+      sketches: file.sketches ?? [],
       patientLabel: file.patientLabel ?? "",
       planNotes: file.planNotes ?? "",
       selectedId: null,
+      selectedSketchId: null,
     });
     scheduleAutosave(get);
   },
@@ -375,6 +451,7 @@ export const useStore = create<StoreState>((set, get) => ({
       patientLabel: s.patientLabel,
       planNotes: s.planNotes,
       electrodes: s.electrodes,
+      sketches: s.sketches,
     };
     return file;
   },
