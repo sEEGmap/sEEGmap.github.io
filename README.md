@@ -5,41 +5,12 @@ planning. Entirely browser-based: no backend, no authentication, no cloud depend
 
 **Planning aid only. Not intended to replace physician judgment.**
 
+Build using Anthropic Claude Sonnet 5 (Medium) - beware of errors
+
 ## Stack
 
 React + TypeScript + Vite · Zustand · Dexie (IndexedDB) · dnd-kit · PptxGenJS · jsPDF ·
 html-to-image · PapaParse
-
-## Run it locally
-
-```bash
-npm install
-npm run dev
-```
-
-## Build for production
-
-```bash
-npm run build   # outputs to dist/
-npm run preview # sanity-check the production build locally
-```
-
-## Deploy to GitHub Pages
-
-This repo is set up for a **user/organization site** named `sEEGplan.github.io`
-(project root deployment), using client-side `HashRouter` so no server-side rewrite
-rules are needed.
-
-1. Create a GitHub repository named exactly `sEEGplan.github.io` and push this project
-   to its `main` branch.
-2. In the repo, go to **Settings → Pages → Build and deployment → Source** and choose
-   **GitHub Actions**. The included workflow at `.github/workflows/deploy.yml` builds
-   and deploys automatically on every push to `main`.
-3. Your site will be live at `https://sEEGplan.github.io/`.
-
-If you instead deploy this as a **project page** under a different repo name (e.g.
-`https://username.github.io/sEEGplan/`), edit the `base` value in `vite.config.ts`
-to `'/sEEGplan/'` before building.
 
 ## Data & privacy
 
@@ -74,33 +45,6 @@ clinician can correct placement before it's used for anything. Please review and
 region/library coordinates for your own template and workflow, and always visually
 verify final electrode placement against real imaging — this tool does not import,
 register, or reason about MRI/CT data.
-
-## Acceptance-criteria checklist
-
-- [x] Intro/Home page with disclaimer and configurable contact section
-- [x] Brain template background, displayed exactly, with four labeled quadrants
-- [x] Lateral-medial electrodes (● entry / ✕ target, no trajectory line)
-- [x] Superior-inferior electrodes (paired ● / ✕ per view with trajectory line), all
-      four endpoints independently draggable
-- [x] Auto-placement from electrode name (4-letter parse + region grid, or exact
-      superior-inferior code lookup)
-- [x] Auto-placement from anatomical search ("By Target")
-- [x] Manual placement workflow with a nomenclature builder
-- [x] Electrode names always directly editable, no rename popups
-- [x] Editable, searchable anatomy library with CSV/JSON import & export
-- [x] Hover highlighting between list rows and canvas markers (both directions)
-- [x] Drag-and-drop reorderable electrode list (dnd-kit), order persists and drives
-      export order
-- [x] IndexedDB autosave on every create/move/delete/rename/notes/reorder/library change
-- [x] Session restore / discard flow on Home
-- [x] `.seegplan` import (Home) and export (Planner toolbar)
-- [x] PNG export (high-resolution canvas capture)
-- [x] PDF export (Overview / Electrode Table / Notes pages)
-- [x] PowerPoint export (Both Hemispheres / Left / Right / Summary / Notes slides)
-- [x] GitHub Pages deployment compatibility (HashRouter, relative `base`, included
-      Actions workflow)
-- [x] Configuration-driven region mapping (`brain-regions.json`) and superior-inferior
-      placement (`superior-inferior-regions.json`)
 
 ## Architecture notes for future extension
 
