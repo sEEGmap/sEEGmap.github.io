@@ -1,1 +1,20 @@
-<!DOCTYPE html><html><head><meta charset=utf-8><title>sEEGplan</title><style>body{font-family:Arial;margin:0}#intro,#app{padding:16px}#app{display:none}.wrap{display:flex}.brain{position:relative}.brain img{max-width:1000px;display:block}#overlay{position:absolute;inset:0}.side{width:360px;padding:10px;border-left:1px solid #ccc}.row{padding:6px;cursor:pointer}.row:hover{background:#eef}.entry,.target{position:absolute;transform:translate(-50%,-50%);cursor:grab}.entry{font-size:20px}.target{font-size:30px;font-weight:900;text-shadow:0 0 2px #000}</style></head><body><div id=intro><h1>sEEGplan v1.0</h1><p>2D sEEG planning tool.</p><p>Contact: EDIT BEFORE DEPLOYMENT</p><button onclick='start()'>New Plan</button></div><div id=app><button onclick='exportPlan()'>Export .seegplan</button><input type=file onchange='importPlan(event)'><button onclick='addElectrode()'>Add Electrode</button><div class=wrap><div class=brain><img id=brain src="brain-template.png"><div id=overlay></div></div><div class=side><input id=search placeholder=search oninput='render()'><div id=list></div></div></div></div><script src=app.js></script></body></html>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>sEEGplan</title>
+    <meta name="description" content="Interactive 2D stereoelectroencephalography planning tool." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

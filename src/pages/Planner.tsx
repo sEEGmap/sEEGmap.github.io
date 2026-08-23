@@ -1,0 +1,136 @@
+import { useRef, useState } from "react";
+import { useStore } from "../store/useStore";
+import BrainCanvas from "../components/BrainCanvas";
+import ElectrodePanel from "../components/ElectrodePanel";
+import { exportWorkspacePng } from "../lib/export/png";
+import { exportWorkspacePdf } from "../lib/export/pdf";
+import { exportWorkspacePptx } from "../lib/export/pptx";
+import { saveSeegplanFile } from "../lib/export/seegplan";
+
+export default function Planner() {
+  const electrodes = useStore((s) => s.electrodes);
+  const patientLabel = useStore((s) => s.patientLabel);
+  const planNotes = useStore((s) => s.planNotes);
+  const setPatientLabel = useStore((s) => s.setPatientLabel);
+  const setPlanNotes = useStore((s) => s.setPlanNotes);
+  const exportPlanFile = useStore((s) => s.exportPlanFile);
+
+  const canvasWrapRef = useRef<HTMLDivElement>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [notesOpen, setNotesOpen] = useState(false);
+
+  const baseFilename = () => (patientLabel.trim() ? patientLabel.trim().replace(/\s+/g, "_") : "seegplan_export");
+
+  const runExport = async (kind: "png" | "pdf" | "pptx") => {
+    if (!canvasWrapRef.current) return;
+    setBusy(kind);
+    try {
+      if (kind === "png") {
+        await exportWorkspacePng(canvasWrapRef.current, baseFilename());
+      } else if (kind === "pdf") {
+        await exportWorkspacePdf({
+          node: canvasWrapRef.current,
+          electrodes,
+          patientLabel,
+          planNotes,
+          filename: baseFilename(),
+        });
+      } else {
+        await exportWorkspacePptx({
+          node: canvasWrapRef.current,
+          electrodes,
+          patientLabel,
+          planNotes,
+          filename: baseFilename(),
+        });
+      }
+    } catch (err) {
+      console.error(err);
+      window.alert("Export failed. See console for details.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleSaveSeegplan = () => {
+    const file = exportPlanFile();
+    saveSeegplanFile(file, baseFilename());
+  };
+
+  return (
+    <div style={{ flex: 1, display: "flex", minHeight: 0 }}>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            padding: "10px 20px",
+            borderBottom: "1px solid var(--line)",
+            background: "var(--surface)",
+            flexWrap: "wrap",
+          }}
+        >
+          <input
+            value={patientLabel}
+            onChange={(e) => setPatientLabel(e.target.value)}
+            placeholder="Patient / case label (not stored in cloud)"
+            style={{
+              border: "1px solid var(--line-strong)",
+              borderRadius: 8,
+              padding: "7px 10px",
+              fontSize: 13,
+              width: 260,
+            }}
+          />
+          <button className="btn btn-sm" onClick={() => setNotesOpen((v) => !v)}>
+            Plan Notes
+          </button>
+          <div style={{ flex: 1 }} />
+          <button className="btn btn-sm" onClick={handleSaveSeegplan}>
+            Save .seegplan
+          </button>
+          <button className="btn btn-sm" disabled={busy !== null} onClick={() => runExport("png")}>
+            {busy === "png" ? "Exporting…" : "Export PNG"}
+          </button>
+          <button className="btn btn-sm" disabled={busy !== null} onClick={() => runExport("pdf")}>
+            {busy === "pdf" ? "Exporting…" : "Export PDF"}
+          </button>
+          <button className="btn btn-sm btn-primary" disabled={busy !== null} onClick={() => runExport("pptx")}>
+            {busy === "pptx" ? "Exporting…" : "Export PPTX"}
+          </button>
+        </div>
+
+        {notesOpen && (
+          <div style={{ padding: "10px 20px", borderBottom: "1px solid var(--line)", background: "var(--surface-2)" }}>
+            <textarea
+              value={planNotes}
+              onChange={(e) => setPlanNotes(e.target.value)}
+              placeholder="Plan-level notes (included on the Notes export page/slide)"
+              rows={3}
+              style={{
+                width: "100%",
+                maxWidth: 900,
+                border: "1px solid var(--line-strong)",
+                borderRadius: 8,
+                padding: 10,
+                fontSize: 13,
+                resize: "vertical",
+              }}
+            />
+          </div>
+        )}
+
+        <div className="scroll" style={{ flex: 1, padding: 20, minHeight: 0 }}>
+          <div ref={canvasWrapRef} style={{ background: "#fff", display: "inline-block", width: "100%" }}>
+            <BrainCanvas />
+          </div>
+        </div>
+      </div>
+
+      <div style={{ width: 340, flexShrink: 0, borderLeft: "1px solid var(--line)", background: "var(--surface)" }}>
+        <ElectrodePanel />
+      </div>
+    </div>
+  );
+}
