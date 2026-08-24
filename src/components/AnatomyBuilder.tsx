@@ -268,7 +268,7 @@ export default function AnatomyBuilder() {
         </div>
       )}
 
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(280px, 1fr) minmax(320px, 1.2fr)", gap: 18, marginTop: 14 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(280px, 0.75fr) minmax(500px, 2fr)", gap: 18, marginTop: 14 }}>
         <div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             <div className="field">
@@ -319,7 +319,7 @@ export default function AnatomyBuilder() {
             </span>
           </div>
           <div style={{ border: "1px solid var(--line-strong)", borderRadius: 10, overflow: "hidden", background: "#fff" }}>
-            <svg viewBox={`0 0 ${REF_W} ${REF_H}`} width="100%" style={{ display: "block", cursor: "crosshair" }} onClick={handleCanvasClick}>
+            <svg viewBox={`0 0 ${REF_W} ${REF_H}`} width="100%" style={{ display: "block", width: "100%", height: "auto", minHeight: 480, cursor: "crosshair" }} onClick={handleCanvasClick}>
               <image href={imageHref} x={0} y={0} width={REF_W} height={REF_H} />
               <circle cx={draft.entryX} cy={draft.entryY} r={12} fill="var(--accent)" stroke="#fff" strokeWidth={3} />
               <line x1={draft.targetX - 12} y1={draft.targetY - 12} x2={draft.targetX + 12} y2={draft.targetY + 12} stroke="var(--danger)" strokeWidth={5} />
