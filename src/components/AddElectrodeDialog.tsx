@@ -31,7 +31,14 @@ export default function AddElectrodeDialog({ onClose }: { onClose: () => void })
     >
       <div
         className="card"
-        style={{ width: 480, maxWidth: "100%", maxHeight: "86vh", display: "flex", flexDirection: "column" }}
+        style={{
+          width: tab === "library" ? 620 : 480,
+          maxWidth: "100%",
+          maxHeight: "86vh",
+          display: "flex",
+          flexDirection: "column",
+          transition: "width 0.15s ease",
+        }}
         onClick={(e) => e.stopPropagation()}
       >
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px", borderBottom: "1px solid var(--line)" }}>
@@ -173,17 +180,72 @@ function ByAnatomyTab({ onDone }: { onDone: () => void }) {
   );
 }
 
+type LibrarySortKey = "electrodeName" | "preferredEntry" | "targetName";
+
+function SortHeader({
+  label,
+  active,
+  dir,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  dir: "asc" | "desc";
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 3,
+        background: "none",
+        border: "none",
+        padding: 0,
+        cursor: "pointer",
+        fontSize: 10.5,
+        fontWeight: 700,
+        textTransform: "uppercase",
+        letterSpacing: "0.04em",
+        color: active ? "var(--accent)" : "var(--faint)",
+      }}
+    >
+      {label}
+      <span style={{ fontSize: 9, opacity: active ? 1 : 0.35 }}>{active && dir === "desc" ? "▼" : "▲"}</span>
+    </button>
+  );
+}
+
 function LibraryTab({ onDone }: { onDone: () => void }) {
   const anatomy = useStore((s) => s.anatomy);
   const electrodes = useStore((s) => s.electrodes);
   const addByName = useStore((s) => s.addByName);
   const addByAnatomy = useStore((s) => s.addByAnatomy);
   const [query, setQuery] = useState("");
+  const [sortKey, setSortKey] = useState<LibrarySortKey>("electrodeName");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  const sorted = useMemo(
-    () => [...anatomy].sort((a, b) => a.targetName.localeCompare(b.targetName)),
-    [anatomy]
-  );
+  const isAlreadyPlaced = (record: AnatomyRecord) => {
+    const code = (record.electrodeName || "").trim().toUpperCase();
+    return electrodes.some(
+      (e) => (code && e.name.trim().toUpperCase() === code) || (e.targetName && e.targetName === record.targetName)
+    );
+  };
+
+  const sorted = useMemo(() => {
+    const list = [...anatomy];
+    list.sort((a, b) => {
+      const av = (a[sortKey] || "").toString();
+      const bv = (b[sortKey] || "").toString();
+      // blank electrode-name entries sink to the bottom regardless of direction
+      if (sortKey === "electrodeName" && !!av !== !!bv) return av ? -1 : 1;
+      const cmp = av.localeCompare(bv, undefined, { numeric: true, sensitivity: "base" });
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+    return list;
+  }, [anatomy, sortKey, sortDir]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -196,70 +258,153 @@ function LibraryTab({ onDone }: { onDone: () => void }) {
     );
   }, [sorted, query]);
 
-  const place = (record: AnatomyRecord) => {
+  const toggleSort = (key: LibrarySortKey) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  };
+
+  const toggleRow = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const placeOne = (record: AnatomyRecord) => {
     const code = (record.electrodeName || "").trim().toUpperCase();
-    // Prefer the library's own electrode code (goes through the same lookup as "By Name",
-    // so it lands at the exact curated position) as long as it isn't already used.
-    if (code && !isNameTaken(code, electrodes)) {
+    if (code && !isNameTaken(code, useStore.getState().electrodes)) {
       addByName(code);
     } else {
       addByAnatomy(record);
     }
+  };
+
+  const addOneAndClose = (record: AnatomyRecord) => {
+    placeOne(record);
     onDone();
   };
 
-  const isAlreadyPlaced = (record: AnatomyRecord) => {
-    const code = (record.electrodeName || "").trim().toUpperCase();
-    return electrodes.some(
-      (e) => (code && e.name.trim().toUpperCase() === code) || (e.targetName && e.targetName === record.targetName)
-    );
+  const addSelected = () => {
+    filtered.filter((r) => selectedIds.has(r.id)).forEach(placeOne);
+    onDone();
   };
 
+  const selectedCount = selectedIds.size;
+  const allVisibleSelected = filtered.length > 0 && filtered.every((r) => selectedIds.has(r.id));
+
+  const toggleSelectAllVisible = () => {
+    setSelectedIds((prev) => {
+      if (allVisibleSelected) {
+        const next = new Set(prev);
+        filtered.forEach((r) => next.delete(r.id));
+        return next;
+      }
+      const next = new Set(prev);
+      filtered.forEach((r) => next.add(r.id));
+      return next;
+    });
+  };
+
+  const gridColumns = "20px 1fr 1.3fr 1.3fr 50px";
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <p style={{ margin: 0, fontSize: 13, color: "var(--muted)", lineHeight: 1.5 }}>
-        Browse the full anatomical library, A–Z. Selecting an entry places its target and preferred
-        entry directly. Entries already in your plan are marked "Added" -- you can still add another.
+        Browse the full anatomical library. Check rows and add several at once, or add one directly.
+        Entries already in your plan are marked "Added".
       </p>
       <div className="field">
         <label>Filter</label>
         <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Filter by target, entry, or code" />
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 340, overflowY: "auto" }}>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: gridColumns,
+          gap: 6,
+          alignItems: "center",
+          padding: "0 8px 6px",
+          borderBottom: "1px solid var(--line-strong)",
+        }}
+      >
+        <input
+          type="checkbox"
+          checked={allVisibleSelected}
+          onChange={toggleSelectAllVisible}
+          title="Select all visible"
+          style={{ cursor: "pointer" }}
+        />
+        <SortHeader label="Electrode" active={sortKey === "electrodeName"} dir={sortDir} onClick={() => toggleSort("electrodeName")} />
+        <SortHeader label="Entry" active={sortKey === "preferredEntry"} dir={sortDir} onClick={() => toggleSort("preferredEntry")} />
+        <SortHeader label="Target" active={sortKey === "targetName"} dir={sortDir} onClick={() => toggleSort("targetName")} />
+        <span />
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", maxHeight: 320, overflowY: "auto" }}>
         {filtered.length === 0 && (
-          <div style={{ fontSize: 13, color: "var(--muted)" }}>No matches. Add entries in Settings → Anatomical Library.</div>
+          <div style={{ fontSize: 13, color: "var(--muted)", padding: "10px 4px" }}>
+            No matches. Add entries in Settings → Anatomical Library.
+          </div>
         )}
         {filtered.map((r) => {
           const added = isAlreadyPlaced(r);
+          const checked = selectedIds.has(r.id);
           return (
-            <button
+            <div
               key={r.id}
-              className="btn"
-              style={{ justifyContent: "flex-start", textAlign: "left", opacity: added ? 0.6 : 1 }}
-              onClick={() => place(r)}
+              onClick={() => toggleRow(r.id)}
+              style={{
+                display: "grid",
+                gridTemplateColumns: gridColumns,
+                gap: 6,
+                alignItems: "center",
+                padding: "7px 8px",
+                borderBottom: "1px solid var(--line)",
+                background: checked ? "var(--accent-soft)" : "transparent",
+                opacity: added ? 0.6 : 1,
+                cursor: "pointer",
+                fontSize: 12.5,
+              }}
             >
-              <div style={{ width: "100%" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontWeight: 600, fontSize: 13.5 }}>{r.targetName}</span>
-                  {r.electrodeName && (
-                    <span className="mono badge" style={{ fontSize: 10.5 }}>
-                      {r.electrodeName}
-                    </span>
-                  )}
-                  {added && (
-                    <span className="badge" style={{ fontSize: 10.5, color: "var(--accent)", borderColor: "var(--accent)" }}>
-                      ✓ Added
-                    </span>
-                  )}
-                </div>
-                <div style={{ fontSize: 11.5, color: "var(--muted)" }}>
-                  Entry: {r.preferredEntry || "--"} · Target: {r.targetName}
-                </div>
+              <input type="checkbox" checked={checked} onChange={() => toggleRow(r.id)} onClick={(e) => e.stopPropagation()} />
+              <div className="mono" style={{ fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {r.electrodeName || "—"}
               </div>
-            </button>
+              <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--muted)" }}>
+                {r.preferredEntry || "—"}
+              </div>
+              <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.targetName}</div>
+              {added ? (
+                <span className="badge" style={{ fontSize: 9.5, color: "var(--accent)", borderColor: "var(--accent)" }}>
+                  Added
+                </span>
+              ) : (
+                <button
+                  className="btn btn-ghost btn-sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    addOneAndClose(r);
+                  }}
+                  style={{ fontSize: 11, padding: "3px 6px" }}
+                >
+                  Add
+                </button>
+              )}
+            </div>
           );
         })}
       </div>
+
+      <button className="btn btn-primary" onClick={addSelected} disabled={selectedCount === 0}>
+        Add Selected {selectedCount > 0 ? `(${selectedCount})` : ""}
+      </button>
     </div>
   );
 }
