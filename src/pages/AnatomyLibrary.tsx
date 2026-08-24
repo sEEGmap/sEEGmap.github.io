@@ -35,14 +35,14 @@ export default function AnatomyLibraryPage() {
     return (
       a.targetName.toLowerCase().includes(q) ||
       a.category.toLowerCase().includes(q) ||
-      a.electrodeName.toLowerCase().includes(q)
+      (a.electrodeName || "").toLowerCase().includes(q)
     );
   });
 
   const startEdit = (record: AnatomyRecord) => {
     setEditingId(record.id);
     setAdding(false);
-    setDraft({ ...record });
+    setDraft({ ...emptyDraft, ...record });
   };
 
   const startAdd = () => {

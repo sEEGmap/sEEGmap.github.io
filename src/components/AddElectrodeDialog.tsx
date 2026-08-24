@@ -171,6 +171,7 @@ function ByAnatomyTab({ onDone }: { onDone: () => void }) {
 function ManualTab({ onDone }: { onDone: () => void }) {
   const addLateralMedial = useStore((s) => s.addLateralMedial);
   const addSuperiorInferior = useStore((s) => s.addSuperiorInferior);
+  const setSelected = useStore((s) => s.setSelected);
   const electrodes = useStore((s) => s.electrodes);
 
   const [kind, setKind] = useState<"lateral-medial" | "superior-inferior">("lateral-medial");
@@ -189,11 +190,13 @@ function ManualTab({ onDone }: { onDone: () => void }) {
   const taken = isNameTaken(generatedName, electrodes);
 
   const submit = () => {
-    if (kind === "lateral-medial") {
-      addLateralMedial({ name: generatedName });
-    } else {
-      addSuperiorInferior({ name: generatedName });
-    }
+    const created =
+      kind === "lateral-medial"
+        ? addLateralMedial({ name: generatedName })
+        : addSuperiorInferior({ name: generatedName });
+    // Select it immediately so it's obviously highlighted in both the list and on the
+    // canvas -- otherwise a freshly-added electrode at the default position can be easy to miss.
+    setSelected(created.id);
     onDone();
   };
 
@@ -201,6 +204,9 @@ function ManualTab({ onDone }: { onDone: () => void }) {
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <p style={{ margin: 0, fontSize: 13, color: "var(--muted)", lineHeight: 1.5 }}>
         Build a name from its parts, then place both markers manually by dragging them on the canvas.
+        The electrode is added at a default position near the top-left of the canvas -- it's
+        already selected (highlighted) in the list so it's easy to find. Entry/Target labels start
+        blank; type them directly in the spreadsheet cells.
       </p>
 
       <div style={{ display: "flex", gap: 4 }}>

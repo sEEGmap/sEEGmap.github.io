@@ -154,7 +154,14 @@ export const useStore = create<StoreState>((set, get) => ({
 
     const anatomyFromDb = await db.anatomy.toArray();
     if (anatomyFromDb.length > 0) {
-      set({ regions, siRegions, anatomy: anatomyFromDb });
+      // Backfill electrodeName for records saved before that field existed, so lookups
+      // below never crash on `undefined.trim()`.
+      const needsBackfill = anatomyFromDb.some((a) => a.electrodeName === undefined || a.electrodeName === null);
+      const normalized = anatomyFromDb.map((a) => ({ ...a, electrodeName: a.electrodeName ?? "" }));
+      if (needsBackfill) {
+        await db.anatomy.bulkPut(normalized);
+      }
+      set({ regions, siRegions, anatomy: normalized });
       return;
     }
 
@@ -248,17 +255,18 @@ export const useStore = create<StoreState>((set, get) => ({
 
     // Try the anatomical library first (exact electrode-name match) -- gives a precise,
     // curated position plus entry/target labels, rather than a generic grid estimate.
-    const libraryMatch = s.anatomy.find((a) => a.electrodeName.trim().toUpperCase() === name);
+    const libraryMatch = s.anatomy.find((a) => (a.electrodeName || "").trim().toUpperCase() === name);
     if (libraryMatch && s.regions) {
       const target = pixelToNormalized(libraryMatch.targetX, libraryMatch.targetY, s.regions);
       const entry = pixelToNormalized(libraryMatch.entryX, libraryMatch.entryY, s.regions);
-      s.addLateralMedial({
+      const created = s.addLateralMedial({
         name,
         entry,
         target,
         entryName: libraryMatch.preferredEntry,
         targetName: libraryMatch.targetName,
       });
+      set({ selectedId: created.id });
       return { ok: true, message: `Placed ${name} from the anatomical library (${libraryMatch.targetName}).` };
     }
 
@@ -267,7 +275,7 @@ export const useStore = create<StoreState>((set, get) => ({
       const anchor = s.siRegions[name];
       const { referenceWidth: rw, referenceHeight: rh } = s.regions;
       const toN = (p: [number, number]) => pixelToNormalized(p[0], p[1], s.regions!);
-      s.addSuperiorInferior({
+      const created = s.addSuperiorInferior({
         name,
         lateralStart: toN(anchor.lateralStart),
         lateralEnd: toN(anchor.lateralEnd),
@@ -275,6 +283,7 @@ export const useStore = create<StoreState>((set, get) => ({
         medialEnd: toN(anchor.medialEnd),
       });
       void rw; void rh;
+      set({ selectedId: created.id });
       return { ok: true, message: `Placed ${name} from the superior-inferior config.` };
     }
 
@@ -287,11 +296,12 @@ export const useStore = create<StoreState>((set, get) => ({
       const row = parsed.smi === "S" ? 0 : parsed.smi === "M" ? 1 : 2;
       const entry = gridPositionInQuadrant(s.regions.quadrants[quadKeyLateral], col as 0 | 1 | 2, row as 0 | 1 | 2, s.regions);
       const target = gridPositionInQuadrant(s.regions.quadrants[quadKeyMedial], col as 0 | 1 | 2, row as 0 | 1 | 2, s.regions);
-      s.addLateralMedial({
+      const created = s.addLateralMedial({
         name: buildLateralMedialName(parsed.side, parsed.lobe, parsed.amp, parsed.smi),
         entry,
         target,
       });
+      set({ selectedId: created.id });
       return {
         ok: true,
         message: `Placed ${name} using the approximate region grid -- verify placement before use.`,
@@ -300,7 +310,8 @@ export const useStore = create<StoreState>((set, get) => ({
 
     // Fallback: allow free-form names that don't fit the standard nomenclature
     // (e.g. an electrode named for a lesion it passes through). Placed manually.
-    s.addLateralMedial({ name });
+    const created = s.addLateralMedial({ name });
+    set({ selectedId: created.id });
     return {
       ok: true,
       message: `Added "${name}" manually -- drag the entry (●) and target (✕) markers into place.`,
@@ -320,13 +331,14 @@ export const useStore = create<StoreState>((set, get) => ({
       suggested = `${side}${record.targetName.slice(0, 2).toUpperCase().replace(/[^A-Z]/g, "X")}${n}`;
       n++;
     }
-    s.addLateralMedial({
+    const created = s.addLateralMedial({
       name: suggested,
       entry,
       target,
       entryName: record.preferredEntry,
       targetName: record.targetName,
     });
+    set({ selectedId: created.id });
   },
 
   updateElectrode: (id, patch) => {
