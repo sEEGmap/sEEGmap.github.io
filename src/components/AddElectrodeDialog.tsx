@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useStore } from "../store/useStore";
+import type { AnatomyRecord } from "../types";
 import {
   AMP_CODES,
   LOBE_CODES,
@@ -9,7 +10,7 @@ import {
   isNameTaken,
 } from "../lib/nomenclature";
 
-type Tab = "name" | "anatomy" | "manual";
+type Tab = "name" | "anatomy" | "library" | "manual";
 
 export default function AddElectrodeDialog({ onClose }: { onClose: () => void }) {
   const [tab, setTab] = useState<Tab>("name");
@@ -46,6 +47,9 @@ export default function AddElectrodeDialog({ onClose }: { onClose: () => void })
           <TabButton active={tab === "anatomy"} onClick={() => setTab("anatomy")}>
             By Target
           </TabButton>
+          <TabButton active={tab === "library"} onClick={() => setTab("library")}>
+            Library
+          </TabButton>
           <TabButton active={tab === "manual"} onClick={() => setTab("manual")}>
             Manual
           </TabButton>
@@ -53,6 +57,7 @@ export default function AddElectrodeDialog({ onClose }: { onClose: () => void })
         <div className="scroll" style={{ padding: 18, flex: 1 }}>
           {tab === "name" && <ByNameTab onDone={onClose} />}
           {tab === "anatomy" && <ByAnatomyTab onDone={onClose} />}
+          {tab === "library" && <LibraryTab onDone={onClose} />}
           {tab === "manual" && <ManualTab onDone={onClose} />}
         </div>
       </div>
@@ -163,6 +168,97 @@ function ByAnatomyTab({ onDone }: { onDone: () => void }) {
             </div>
           </button>
         ))}
+      </div>
+    </div>
+  );
+}
+
+function LibraryTab({ onDone }: { onDone: () => void }) {
+  const anatomy = useStore((s) => s.anatomy);
+  const electrodes = useStore((s) => s.electrodes);
+  const addByName = useStore((s) => s.addByName);
+  const addByAnatomy = useStore((s) => s.addByAnatomy);
+  const [query, setQuery] = useState("");
+
+  const sorted = useMemo(
+    () => [...anatomy].sort((a, b) => a.targetName.localeCompare(b.targetName)),
+    [anatomy]
+  );
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return sorted;
+    return sorted.filter(
+      (a) =>
+        a.targetName.toLowerCase().includes(q) ||
+        a.preferredEntry.toLowerCase().includes(q) ||
+        (a.electrodeName || "").toLowerCase().includes(q)
+    );
+  }, [sorted, query]);
+
+  const place = (record: AnatomyRecord) => {
+    const code = (record.electrodeName || "").trim().toUpperCase();
+    // Prefer the library's own electrode code (goes through the same lookup as "By Name",
+    // so it lands at the exact curated position) as long as it isn't already used.
+    if (code && !isNameTaken(code, electrodes)) {
+      addByName(code);
+    } else {
+      addByAnatomy(record);
+    }
+    onDone();
+  };
+
+  const isAlreadyPlaced = (record: AnatomyRecord) => {
+    const code = (record.electrodeName || "").trim().toUpperCase();
+    return electrodes.some(
+      (e) => (code && e.name.trim().toUpperCase() === code) || (e.targetName && e.targetName === record.targetName)
+    );
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <p style={{ margin: 0, fontSize: 13, color: "var(--muted)", lineHeight: 1.5 }}>
+        Browse the full anatomical library, A–Z. Selecting an entry places its target and preferred
+        entry directly. Entries already in your plan are marked "Added" -- you can still add another.
+      </p>
+      <div className="field">
+        <label>Filter</label>
+        <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Filter by target, entry, or code" />
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 340, overflowY: "auto" }}>
+        {filtered.length === 0 && (
+          <div style={{ fontSize: 13, color: "var(--muted)" }}>No matches. Add entries in Settings → Anatomical Library.</div>
+        )}
+        {filtered.map((r) => {
+          const added = isAlreadyPlaced(r);
+          return (
+            <button
+              key={r.id}
+              className="btn"
+              style={{ justifyContent: "flex-start", textAlign: "left", opacity: added ? 0.6 : 1 }}
+              onClick={() => place(r)}
+            >
+              <div style={{ width: "100%" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontWeight: 600, fontSize: 13.5 }}>{r.targetName}</span>
+                  {r.electrodeName && (
+                    <span className="mono badge" style={{ fontSize: 10.5 }}>
+                      {r.electrodeName}
+                    </span>
+                  )}
+                  {added && (
+                    <span className="badge" style={{ fontSize: 10.5, color: "var(--accent)", borderColor: "var(--accent)" }}>
+                      ✓ Added
+                    </span>
+                  )}
+                </div>
+                <div style={{ fontSize: 11.5, color: "var(--muted)" }}>
+                  Entry: {r.preferredEntry || "--"} · Target: {r.targetName}
+                </div>
+              </div>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
