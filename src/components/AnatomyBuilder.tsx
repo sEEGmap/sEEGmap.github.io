@@ -268,7 +268,8 @@ export default function AnatomyBuilder() {
         </div>
       )}
 
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(280px, 0.75fr) minmax(500px, 2fr)", gap: 18, marginTop: 14 }}>
+      {/* Stacked Vertical Layout: Inputs on Top, Brain Canvas Below */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 20, marginTop: 14 }}>
         <div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             <div className="field">
@@ -311,7 +312,8 @@ export default function AnatomyBuilder() {
           <div style={{ marginTop: 10, fontSize: 11.5, color: "var(--muted)", minHeight: 18 }}>{status}</div>
         </div>
 
-        <div>
+        {/* Brain Figure Container */}
+        <div style={{ width: "100%", maxWidth: 800, margin: "0 auto" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 7 }}>
             <span style={{ fontSize: 12, color: "var(--muted)" }}>Click to set <strong>{pickMode === "target" ? "TARGET" : "ENTRY"}</strong></span>
             <span className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>
@@ -319,7 +321,7 @@ export default function AnatomyBuilder() {
             </span>
           </div>
           <div style={{ border: "1px solid var(--line-strong)", borderRadius: 10, overflow: "hidden", background: "#fff" }}>
-            <svg viewBox={`0 0 ${REF_W} ${REF_H}`} width="100%" style={{ display: "block", width: "100%", height: "auto", minHeight: 480, cursor: "crosshair" }} onClick={handleCanvasClick}>
+            <svg viewBox={`0 0 ${REF_W} ${REF_H}`} width="100%" style={{ display: "block", width: "100%", height: "auto", minHeight: 350, cursor: "crosshair" }} onClick={handleCanvasClick}>
               <image href={imageHref} x={0} y={0} width={REF_W} height={REF_H} />
               <circle cx={draft.entryX} cy={draft.entryY} r={12} fill="var(--accent)" stroke="#fff" strokeWidth={3} />
               <line x1={draft.targetX - 12} y1={draft.targetY - 12} x2={draft.targetX + 12} y2={draft.targetY + 12} stroke="var(--danger)" strokeWidth={5} />
