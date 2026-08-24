@@ -35,6 +35,26 @@ function nowISO() {
   return new Date().toISOString();
 }
 
+interface PlanSnapshot {
+  electrodes: Electrode[];
+  sketches: FreehandSketch[];
+}
+
+function cloneSnapshot(s: Pick<StoreState, "electrodes" | "sketches">): PlanSnapshot {
+  return {
+    electrodes: JSON.parse(JSON.stringify(s.electrodes)) as Electrode[],
+    sketches: JSON.parse(JSON.stringify(s.sketches)) as FreehandSketch[],
+  };
+}
+
+function snapshotsEqual(a: PlanSnapshot, b: PlanSnapshot): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
+interface HistoryBatch {
+  before: PlanSnapshot;
+}
+
 interface StoreState {
   // config
   regions: BrainRegionsConfig | null;
@@ -50,6 +70,15 @@ interface StoreState {
   hoveredId: string | null;
   searchQuery: string;
   hydrated: boolean;
+
+  // undo / redo
+  undoStack: PlanSnapshot[];
+  redoStack: PlanSnapshot[];
+  beginHistoryBatch: () => void;
+  endHistoryBatch: () => void;
+  undo: () => void;
+  redo: () => void;
+  nudgeSelection: (dx: number, dy: number) => void;
 
   // canvas ui state
   showNames: boolean;
@@ -70,6 +99,7 @@ interface StoreState {
   addLateralMedial: (partial?: Partial<LateralMedialElectrode>) => LateralMedialElectrode;
   addSuperiorInferior: (partial?: Partial<SuperiorInferiorElectrode>) => SuperiorInferiorElectrode;
   addByName: (name: string) => { ok: boolean; message: string };
+  mirrorElectrode: (id: string) => { ok: boolean; message: string };
   addByAnatomy: (record: AnatomyRecord) => void;
   updateElectrode: (id: string, patch: Partial<Electrode>) => void;
   renameElectrode: (id: string, name: string) => { ok: boolean; message: string };
@@ -100,6 +130,14 @@ interface StoreState {
 }
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
+let historyBatch: HistoryBatch | null = null;
+
+function pushHistory(set: any, get: () => StoreState, before: PlanSnapshot) {
+  const current = cloneSnapshot(get());
+  if (snapshotsEqual(before, current)) return;
+  set((s: StoreState) => ({ undoStack: [...s.undoStack, before].slice(-100), redoStack: [] }));
+}
+
 function scheduleAutosave(get: () => StoreState) {
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(async () => {
@@ -132,10 +170,13 @@ export const useStore = create<StoreState>((set, get) => ({
   searchQuery: "",
   hydrated: false,
 
+  undoStack: [],
+  redoStack: [],
+
   showNames: true,
   toggleShowNames: () => set((s) => ({ showNames: !s.showNames })),
   drawMode: false,
-  setDrawMode: (v) => set({ drawMode: v, selectedSketchId: v ? null : get().selectedSketchId }),
+  setDrawMode: (v) => set({ drawMode: v, selectedId: v ? null : get().selectedId, selectedSketchId: v ? null : get().selectedSketchId }),
   sketchDraftColor: "#D68910",
   sketchDraftOpacity: 0.35,
   setSketchDraft: (patch) =>
@@ -144,7 +185,86 @@ export const useStore = create<StoreState>((set, get) => ({
       sketchDraftOpacity: patch.opacity ?? s.sketchDraftOpacity,
     })),
   selectedSketchId: null,
-  setSelectedSketchId: (id) => set({ selectedSketchId: id }),
+  setSelectedSketchId: (id) => set({ selectedSketchId: id, selectedId: id ? null : get().selectedId }),
+
+  beginHistoryBatch: () => {
+    if (!historyBatch) historyBatch = { before: cloneSnapshot(get()) };
+  },
+
+  endHistoryBatch: () => {
+    if (!historyBatch) return;
+    const before = historyBatch.before;
+    historyBatch = null;
+    pushHistory(set, get, before);
+  },
+
+  nudgeSelection: (dx, dy) => {
+    const s = get();
+    if (s.selectedId) {
+      const electrode = s.electrodes.find((e) => e.id === s.selectedId);
+      if (!electrode) return;
+      if (electrode.type === "lateral-medial") {
+        s.updateElectrode(electrode.id, {
+          entry: { x: Math.min(1, Math.max(0, electrode.entry.x + dx)), y: Math.min(1, Math.max(0, electrode.entry.y + dy)) },
+          target: { x: Math.min(1, Math.max(0, electrode.target.x + dx)), y: Math.min(1, Math.max(0, electrode.target.y + dy)) },
+        });
+      } else {
+        const move = (p: Point): Point => ({
+          x: Math.min(1, Math.max(0, p.x + dx)),
+          y: Math.min(1, Math.max(0, p.y + dy)),
+        });
+        s.updateElectrode(electrode.id, {
+          lateralStart: move(electrode.lateralStart),
+          lateralEnd: move(electrode.lateralEnd),
+          medialStart: move(electrode.medialStart),
+          medialEnd: move(electrode.medialEnd),
+        });
+      }
+      return;
+    }
+    if (s.selectedSketchId) {
+      const sketch = s.sketches.find((sk) => sk.id === s.selectedSketchId);
+      if (!sketch) return;
+      s.updateSketch(sketch.id, {
+        points: sketch.points.map((p) => ({
+          x: Math.min(1, Math.max(0, p.x + dx)),
+          y: Math.min(1, Math.max(0, p.y + dy)),
+        })),
+      });
+    }
+  },
+
+  undo: () => {
+    const s = get();
+    const before = s.undoStack[s.undoStack.length - 1];
+    if (!before) return;
+    const current = cloneSnapshot(s);
+    set({
+      electrodes: JSON.parse(JSON.stringify(before.electrodes)) as Electrode[],
+      sketches: JSON.parse(JSON.stringify(before.sketches)) as FreehandSketch[],
+      undoStack: s.undoStack.slice(0, -1),
+      redoStack: [...s.redoStack, current].slice(-100),
+      selectedId: s.selectedId && before.electrodes.some((e) => e.id === s.selectedId) ? s.selectedId : null,
+      selectedSketchId: s.selectedSketchId && before.sketches.some((sk) => sk.id === s.selectedSketchId) ? s.selectedSketchId : null,
+    });
+    scheduleAutosave(get);
+  },
+
+  redo: () => {
+    const s = get();
+    const next = s.redoStack[s.redoStack.length - 1];
+    if (!next) return;
+    const current = cloneSnapshot(s);
+    set({
+      electrodes: JSON.parse(JSON.stringify(next.electrodes)) as Electrode[],
+      sketches: JSON.parse(JSON.stringify(next.sketches)) as FreehandSketch[],
+      redoStack: s.redoStack.slice(0, -1),
+      undoStack: [...s.undoStack, current].slice(-100),
+      selectedId: s.selectedId && next.electrodes.some((e) => e.id === s.selectedId) ? s.selectedId : null,
+      selectedSketchId: s.selectedSketchId && next.sketches.some((sk) => sk.id === s.selectedSketchId) ? s.selectedSketchId : null,
+    });
+    scheduleAutosave(get);
+  },
 
   loadConfigs: async () => {
     const base = import.meta.env.BASE_URL;
@@ -219,7 +339,9 @@ export const useStore = create<StoreState>((set, get) => ({
       createdAt: nowISO(),
       updatedAt: nowISO(),
     };
+    const before = cloneSnapshot(s);
     set({ electrodes: [...s.electrodes, electrode] });
+    if (!historyBatch) pushHistory(set, get, before);
     scheduleAutosave(get);
     return electrode;
   },
@@ -242,7 +364,9 @@ export const useStore = create<StoreState>((set, get) => ({
       createdAt: nowISO(),
       updatedAt: nowISO(),
     };
+    const before = cloneSnapshot(s);
     set({ electrodes: [...s.electrodes, electrode] });
+    if (!historyBatch) pushHistory(set, get, before);
     scheduleAutosave(get);
     return electrode;
   },
@@ -320,6 +444,74 @@ export const useStore = create<StoreState>((set, get) => ({
     };
   },
 
+  mirrorElectrode: (id) => {
+    const s = get();
+    const source = s.electrodes.find((e) => e.id === id);
+    if (!source) return { ok: false, message: "Select an electrode first." };
+    const name = source.name.trim().toUpperCase();
+    if (!/^[LR]/.test(name)) {
+      return { ok: false, message: `"${source.name}" does not have an L/R hemisphere prefix.` };
+    }
+    const mirroredName = `${name[0] === "L" ? "R" : "L"}${name.slice(1)}`;
+    if (isNameTaken(mirroredName, s.electrodes)) {
+      return { ok: false, message: `Cannot mirror ${name}: ${mirroredName} is already in the plan.` };
+    }
+
+    const libraryMatch = s.anatomy.find(
+      (a) => (a.electrodeName || "").trim().toUpperCase() === mirroredName
+    );
+
+    const before = cloneSnapshot(s);
+    let created: Electrode;
+    historyBatch = { before };
+    if (source.type === "lateral-medial") {
+      if (libraryMatch && s.regions) {
+        created = s.addLateralMedial({
+          name: mirroredName,
+          color: source.color,
+          entry: pixelToNormalized(libraryMatch.entryX, libraryMatch.entryY, s.regions),
+          target: pixelToNormalized(libraryMatch.targetX, libraryMatch.targetY, s.regions),
+          entryName: libraryMatch.preferredEntry,
+          targetName: libraryMatch.targetName,
+          notes: source.notes,
+        });
+      } else {
+        created = s.addLateralMedial({
+          name: mirroredName,
+          color: source.color,
+          entry: { x: 1 - source.entry.x, y: source.entry.y },
+          target: { x: 1 - source.target.x, y: source.target.y },
+          entryName: source.entryName,
+          targetName: source.targetName,
+          notes: source.notes,
+        });
+      }
+    } else {
+      // Superior-inferior electrodes are mirrored geometrically unless a future
+      // dedicated SI library record is added. All four trajectory points flip in X.
+      created = s.addSuperiorInferior({
+        name: mirroredName,
+        color: source.color,
+        lateralStart: { x: 1 - source.lateralStart.x, y: source.lateralStart.y },
+        lateralEnd: { x: 1 - source.lateralEnd.x, y: source.lateralEnd.y },
+        medialStart: { x: 1 - source.medialStart.x, y: source.medialStart.y },
+        medialEnd: { x: 1 - source.medialEnd.x, y: source.medialEnd.y },
+        entryName: source.entryName,
+        targetName: source.targetName,
+        notes: source.notes,
+      });
+    }
+    historyBatch = null;
+    pushHistory(set, get, before);
+    set({ selectedId: created.id });
+    return {
+      ok: true,
+      message: libraryMatch
+        ? `Mirrored ${name} to ${mirroredName} using the contralateral anatomical-library coordinates.`
+        : `Mirrored ${name} to ${mirroredName} using geometric reflection across the midline.`,
+    };
+  },
+
   addByAnatomy: (record) => {
     const s = get();
     if (!s.regions) return;
@@ -345,11 +537,13 @@ export const useStore = create<StoreState>((set, get) => ({
 
   updateElectrode: (id, patch) => {
     const s = get();
+    const before = cloneSnapshot(s);
     set({
       electrodes: s.electrodes.map((e) =>
         e.id === id ? ({ ...e, ...patch, updatedAt: nowISO() } as Electrode) : e
       ),
     });
+    if (!historyBatch) pushHistory(set, get, before);
     scheduleAutosave(get);
   },
 
@@ -366,10 +560,12 @@ export const useStore = create<StoreState>((set, get) => ({
 
   removeElectrode: (id) => {
     const s = get();
+    const before = cloneSnapshot(s);
     const remaining = s.electrodes
       .filter((e) => e.id !== id)
       .map((e, i) => ({ ...e, order: i }));
     set({ electrodes: remaining, selectedId: s.selectedId === id ? null : s.selectedId });
+    if (!historyBatch) pushHistory(set, get, before);
     scheduleAutosave(get);
   },
 
@@ -382,11 +578,13 @@ export const useStore = create<StoreState>((set, get) => ({
         return e ? { ...e, order: i } : null;
       })
       .filter(Boolean) as Electrode[];
+    const before = cloneSnapshot(s);
     set({ electrodes: reordered });
+    if (!historyBatch) pushHistory(set, get, before);
     scheduleAutosave(get);
   },
 
-  setSelected: (id) => set({ selectedId: id }),
+  setSelected: (id) => set({ selectedId: id, selectedSketchId: id ? null : get().selectedSketchId }),
   setHovered: (id) => set({ hoveredId: id }),
   setSearchQuery: (q) => set({ searchQuery: q }),
 
@@ -402,7 +600,9 @@ export const useStore = create<StoreState>((set, get) => ({
       createdAt: nowISO(),
       updatedAt: nowISO(),
     };
+    const before = cloneSnapshot(s);
     set({ sketches: [...s.sketches, sketch], selectedSketchId: sketch.id });
+    if (!historyBatch) pushHistory(set, get, before);
     scheduleAutosave(get);
   },
 
@@ -421,24 +621,30 @@ export const useStore = create<StoreState>((set, get) => ({
       createdAt: nowISO(),
       updatedAt: nowISO(),
     };
+    const before = cloneSnapshot(s);
     set({ sketches: [...s.sketches, copy], selectedSketchId: copy.id });
+    if (!historyBatch) pushHistory(set, get, before);
     scheduleAutosave(get);
   },
 
   updateSketch: (id, patch) => {
     const s = get();
+    const before = cloneSnapshot(s);
     set({
       sketches: s.sketches.map((sk) => (sk.id === id ? { ...sk, ...patch, updatedAt: nowISO() } : sk)),
     });
+    if (!historyBatch) pushHistory(set, get, before);
     scheduleAutosave(get);
   },
 
   removeSketch: (id) => {
     const s = get();
+    const before = cloneSnapshot(s);
     set({
       sketches: s.sketches.filter((sk) => sk.id !== id),
       selectedSketchId: s.selectedSketchId === id ? null : s.selectedSketchId,
     });
+    if (!historyBatch) pushHistory(set, get, before);
     scheduleAutosave(get);
   },
 
@@ -476,10 +682,12 @@ export const useStore = create<StoreState>((set, get) => ({
       await db.sketches.clear();
       await db.session.clear();
     });
-    set({ electrodes: [], sketches: [], patientLabel: "", planNotes: "", selectedId: null, selectedSketchId: null });
+    historyBatch = null;
+    set({ electrodes: [], sketches: [], patientLabel: "", planNotes: "", selectedId: null, selectedSketchId: null, undoStack: [], redoStack: [] });
   },
 
   loadPlanFile: (file) => {
+    historyBatch = null;
     set({
       electrodes: file.electrodes,
       sketches: file.sketches ?? [],
@@ -487,6 +695,8 @@ export const useStore = create<StoreState>((set, get) => ({
       planNotes: file.planNotes ?? "",
       selectedId: null,
       selectedSketchId: null,
+      undoStack: [],
+      redoStack: [],
     });
     scheduleAutosave(get);
   },

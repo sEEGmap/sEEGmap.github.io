@@ -18,6 +18,8 @@ export default function ElectrodePanel() {
   const searchQuery = useStore((s) => s.searchQuery);
   const setSearchQuery = useStore((s) => s.setSearchQuery);
   const reorderElectrodes = useStore((s) => s.reorderElectrodes);
+  const selectedId = useStore((s) => s.selectedId);
+  const mirrorElectrode = useStore((s) => s.mirrorElectrode);
   const [showAdd, setShowAdd] = useState(false);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
@@ -66,9 +68,23 @@ export default function ElectrodePanel() {
             fontSize: 13,
           }}
         />
-        <button className="btn btn-primary btn-sm" onClick={() => setShowAdd(true)}>
-          + Add Electrode
-        </button>
+        <div style={{ display: "flex", gap: 6 }}>
+          <button className="btn btn-primary btn-sm" onClick={() => setShowAdd(true)}>
+            + Add Electrode
+          </button>
+          <button
+            className="btn btn-sm"
+            disabled={!selectedId}
+            title="Mirror the selected electrode to the opposite hemisphere"
+            onClick={() => {
+              if (!selectedId) return;
+              const result = mirrorElectrode(selectedId);
+              if (!result.ok) window.alert(result.message);
+            }}
+          >
+            Mirror to R/L
+          </button>
+        </div>
       </div>
 
       {electrodes.length > 0 && (

@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import Papa from "papaparse";
 import { useStore } from "../store/useStore";
 import type { AnatomyRecord } from "../types";
+import AnatomyBuilder from "../components/AnatomyBuilder";
 
 const emptyDraft = {
   electrodeName: "",
@@ -23,6 +24,7 @@ export default function AnatomyLibraryPage() {
   const replaceAnatomyLibrary = useStore((s) => s.replaceAnatomyLibrary);
 
   const [query, setQuery] = useState("");
+  const [tab, setTab] = useState<"library" | "builder">("library");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState(emptyDraft);
   const [adding, setAdding] = useState(false);
@@ -153,6 +155,35 @@ export default function AnatomyLibraryPage() {
         />
       </div>
 
+      <div style={{ display: "flex", gap: 4, marginTop: 18, borderBottom: "1px solid var(--line)" }}>
+        <button
+          className="btn btn-sm"
+          onClick={() => setTab("library")}
+          style={{
+            borderRadius: "8px 8px 0 0",
+            borderBottomColor: tab === "library" ? "var(--accent)" : "transparent",
+            color: tab === "library" ? "var(--accent)" : "var(--muted)",
+          }}
+        >
+          Library
+        </button>
+        <button
+          className="btn btn-sm"
+          onClick={() => setTab("builder")}
+          style={{
+            borderRadius: "8px 8px 0 0",
+            borderBottomColor: tab === "builder" ? "var(--accent)" : "transparent",
+            color: tab === "builder" ? "var(--accent)" : "var(--muted)",
+          }}
+        >
+          Click-to-build
+        </button>
+      </div>
+
+      {tab === "builder" ? (
+        <AnatomyBuilder />
+      ) : (
+        <>
       <input
         value={query}
         onChange={(e) => setQuery(e.target.value)}
@@ -275,6 +306,8 @@ export default function AnatomyLibraryPage() {
           <div style={{ color: "var(--muted)", fontSize: 13, padding: 20, textAlign: "center" }}>No records found.</div>
         )}
       </div>
+        </>
+      )}
     </div>
   );
 }

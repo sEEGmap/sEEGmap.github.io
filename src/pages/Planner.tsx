@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useStore } from "../store/useStore";
 import BrainCanvas from "../components/BrainCanvas";
 import ElectrodePanel from "../components/ElectrodePanel";
@@ -6,6 +6,7 @@ import { exportWorkspacePng } from "../lib/export/png";
 import { exportWorkspacePdf } from "../lib/export/pdf";
 import { exportWorkspacePptx } from "../lib/export/pptx";
 import { saveSeegplanFile } from "../lib/export/seegplan";
+import { REF_H, REF_W } from "../lib/constants";
 
 export default function Planner() {
   const electrodes = useStore((s) => s.electrodes);
@@ -22,6 +23,59 @@ export default function Planner() {
   const sketchDraftColor = useStore((s) => s.sketchDraftColor);
   const sketchDraftOpacity = useStore((s) => s.sketchDraftOpacity);
   const setSketchDraft = useStore((s) => s.setSketchDraft);
+  const undo = useStore((s) => s.undo);
+  const redo = useStore((s) => s.redo);
+  const undoCount = useStore((s) => s.undoStack.length);
+  const redoCount = useStore((s) => s.redoStack.length);
+  const nudgeSelection = useStore((s) => s.nudgeSelection);
+  const selectedId = useStore((s) => s.selectedId);
+  const selectedSketchId = useStore((s) => s.selectedSketchId);
+  const setSelected = useStore((s) => s.setSelected);
+  const setSelectedSketchId = useStore((s) => s.setSelectedSketchId);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT" || target.isContentEditable)) return;
+
+      if (e.key === "Escape") {
+        setSelected(null);
+        setSelectedSketchId(null);
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && !e.altKey) {
+        if (e.key.toLowerCase() === "z") {
+          e.preventDefault();
+          if (e.shiftKey) redo(); else undo();
+          return;
+        }
+        if (e.key.toLowerCase() === "y") {
+          e.preventDefault();
+          redo();
+          return;
+        }
+      }
+      if (e.key === "Delete" || e.key === "Backspace") {
+        if (selectedId || selectedSketchId) {
+          e.preventDefault();
+          if (selectedId) useStore.getState().removeElectrode(selectedId);
+          else if (selectedSketchId) useStore.getState().removeSketch(selectedSketchId);
+        }
+        return;
+      }
+      const arrows: Record<string, [number, number]> = {
+        ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1],
+      };
+      const delta = arrows[e.key];
+      if (delta && (selectedId || selectedSketchId)) {
+        e.preventDefault();
+        const pixels = e.shiftKey ? 10 : 2;
+        nudgeSelection((delta[0] * pixels) / REF_W, (delta[1] * pixels) / REF_H);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [nudgeSelection, redo, selectedId, selectedSketchId, setSelected, setSelectedSketchId, undo]);
 
   const canvasWrapRef = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -142,6 +196,10 @@ export default function Planner() {
               <span style={{ fontSize: 11, color: "var(--muted)" }}>Trace freehand on canvas</span>
             </div>
           )}
+          <div style={{ display: "flex", gap: 5 }} title="Undo / redo (Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z)">
+            <button className="btn btn-sm" disabled={undoCount === 0} onClick={undo}>↶ Undo</button>
+            <button className="btn btn-sm" disabled={redoCount === 0} onClick={redo}>↷ Redo</button>
+          </div>
           <div style={{ flex: 1 }} />
           <button className="btn btn-sm" onClick={handleSaveSeegplan}>
             Save .seegplan

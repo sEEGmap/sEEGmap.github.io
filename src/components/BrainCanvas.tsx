@@ -21,6 +21,8 @@ export default function BrainCanvas() {
   const setSelected = useStore((s) => s.setSelected);
   const setHovered = useStore((s) => s.setHovered);
   const updateElectrode = useStore((s) => s.updateElectrode);
+  const beginHistoryBatch = useStore((s) => s.beginHistoryBatch);
+  const endHistoryBatch = useStore((s) => s.endHistoryBatch);
   const showNames = useStore((s) => s.showNames);
   const drawMode = useStore((s) => s.drawMode);
   const addSketch = useStore((s) => s.addSketch);
@@ -64,6 +66,7 @@ export default function BrainCanvas() {
     movedRef.current = false;
     prevSelectedRef.current = selectedId;
     dragRef.current = target;
+    beginHistoryBatch();
     setSelected(target.electrodeId);
   };
 
@@ -88,6 +91,7 @@ export default function BrainCanvas() {
       startY: point.y,
       originalPoints: sketch.points,
     };
+    beginHistoryBatch();
     setSelectedSketchId(sketch.id);
   };
 
@@ -115,6 +119,7 @@ export default function BrainCanvas() {
   };
 
   const endDrag = () => {
+    if (dragRef.current || sketchDragRef.current) endHistoryBatch();
     dragRef.current = null;
   };
 
