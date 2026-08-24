@@ -4,6 +4,7 @@ import { useStore } from "../store/useStore";
 import type { AnatomyRecord } from "../types";
 
 const emptyDraft = {
+  electrodeName: "",
   targetName: "",
   preferredEntry: "",
   targetX: 0,
@@ -31,7 +32,11 @@ export default function AnatomyLibraryPage() {
   const filtered = anatomy.filter((a) => {
     const q = query.trim().toLowerCase();
     if (!q) return true;
-    return a.targetName.toLowerCase().includes(q) || a.category.toLowerCase().includes(q);
+    return (
+      a.targetName.toLowerCase().includes(q) ||
+      a.category.toLowerCase().includes(q) ||
+      a.electrodeName.toLowerCase().includes(q)
+    );
   });
 
   const startEdit = (record: AnatomyRecord) => {
@@ -64,6 +69,7 @@ export default function AnatomyLibraryPage() {
   const exportCsv = () => {
     const csv = Papa.unparse(
       anatomy.map((a) => ({
+        ElectrodeName: a.electrodeName,
         TargetName: a.targetName,
         PreferredEntry: a.preferredEntry,
         TargetX: a.targetX,
@@ -85,6 +91,7 @@ export default function AnatomyLibraryPage() {
     const text = await file.text();
     const parsed = Papa.parse<Record<string, string>>(text, { header: true, skipEmptyLines: true });
     const records = parsed.data.map((row) => ({
+      electrodeName: row.ElectrodeName ?? "",
       targetName: row.TargetName ?? "",
       preferredEntry: row.PreferredEntry ?? "",
       targetX: Number(row.TargetX) || 0,
@@ -100,7 +107,7 @@ export default function AnatomyLibraryPage() {
   const importJson = async (file: File) => {
     const text = await file.text();
     const records = JSON.parse(text) as AnatomyRecord[];
-    replaceAnatomyLibrary(records.map(({ id: _id, ...rest }) => rest));
+    replaceAnatomyLibrary(records.map(({ id: _id, electrodeName, ...rest }) => ({ electrodeName: electrodeName ?? "", ...rest })));
   };
 
   return (
@@ -149,7 +156,7 @@ export default function AnatomyLibraryPage() {
       <input
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search target or category"
+        placeholder="Search target, category, or electrode name"
         style={{
           marginTop: 18,
           width: "100%",
@@ -165,6 +172,15 @@ export default function AnatomyLibraryPage() {
           <strong style={{ fontSize: 13.5 }}>{editingId ? "Edit record" : "New record"}</strong>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 12 }}>
             <div className="field">
+              <label>Electrode name (optional)</label>
+              <input
+                className="mono"
+                value={draft.electrodeName}
+                onChange={(e) => setDraft({ ...draft, electrodeName: e.target.value.toUpperCase() })}
+                placeholder="e.g. LTAI"
+              />
+            </div>
+            <div className="field">
               <label>Target name</label>
               <input value={draft.targetName} onChange={(e) => setDraft({ ...draft, targetName: e.target.value })} />
             </div>
@@ -176,7 +192,6 @@ export default function AnatomyLibraryPage() {
               <label>Category</label>
               <input value={draft.category} onChange={(e) => setDraft({ ...draft, category: e.target.value })} />
             </div>
-            <div />
             <div className="field">
               <label>Target X / Y (reference px)</label>
               <div style={{ display: "flex", gap: 8 }}>
@@ -236,7 +251,14 @@ export default function AnatomyLibraryPage() {
             }}
           >
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontWeight: 600, fontSize: 13.5 }}>{a.targetName}</div>
+              <div style={{ fontWeight: 600, fontSize: 13.5, display: "flex", alignItems: "center", gap: 8 }}>
+                {a.targetName}
+                {a.electrodeName && (
+                  <span className="mono badge" style={{ fontSize: 10.5 }}>
+                    {a.electrodeName}
+                  </span>
+                )}
+              </div>
               <div style={{ fontSize: 11.5, color: "var(--muted)" }}>
                 {a.category || "Uncategorized"} · entry: {a.preferredEntry || "--"} · target ({a.targetX}, {a.targetY})
               </div>

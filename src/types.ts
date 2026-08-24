@@ -54,6 +54,7 @@ export interface AnatomyRecord {
   entryY: number;
   category: string;
   comments: string;
+  electrodeName: string;
 }
 
 export interface AppConfig {

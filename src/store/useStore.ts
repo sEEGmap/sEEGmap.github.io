@@ -173,6 +173,7 @@ export const useStore = create<StoreState>((set, get) => ({
       entryY: Number(row.EntryY) || 0,
       category: row.Category ?? "",
       comments: row.Comments ?? "",
+      electrodeName: row.ElectrodeName ?? "",
     }));
     await db.anatomy.bulkAdd(records);
     set({ regions, siRegions, anatomy: records });
@@ -245,7 +246,23 @@ export const useStore = create<StoreState>((set, get) => ({
       return { ok: false, message: `"${name}" is already in use.` };
     }
 
-    // Try superior-inferior config lookup first (exact-name match, e.g. LAI, RPF)
+    // Try the anatomical library first (exact electrode-name match) -- gives a precise,
+    // curated position plus entry/target labels, rather than a generic grid estimate.
+    const libraryMatch = s.anatomy.find((a) => a.electrodeName.trim().toUpperCase() === name);
+    if (libraryMatch && s.regions) {
+      const target = pixelToNormalized(libraryMatch.targetX, libraryMatch.targetY, s.regions);
+      const entry = pixelToNormalized(libraryMatch.entryX, libraryMatch.entryY, s.regions);
+      s.addLateralMedial({
+        name,
+        entry,
+        target,
+        entryName: libraryMatch.preferredEntry,
+        targetName: libraryMatch.targetName,
+      });
+      return { ok: true, message: `Placed ${name} from the anatomical library (${libraryMatch.targetName}).` };
+    }
+
+    // Try superior-inferior config lookup next (exact-name match, e.g. LAI, RPF)
     if (s.siRegions && s.siRegions[name] && s.regions) {
       const anchor = s.siRegions[name];
       const { referenceWidth: rw, referenceHeight: rh } = s.regions;

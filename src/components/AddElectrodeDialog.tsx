@@ -94,9 +94,10 @@ function ByNameTab({ onDone }: { onDone: () => void }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <p style={{ margin: 0, fontSize: 13, color: "var(--muted)", lineHeight: 1.5 }}>
-        Enter a lateral-medial code (e.g. <span className="mono">LTMI</span>) or a superior-inferior code
-        (e.g. <span className="mono">LAI</span>). The entry and target markers are placed automatically from
-        the region configuration -- verify placement afterward.
+        If the name matches the anatomical library (e.g. <span className="mono">LTAI</span>), entry/target are
+        placed precisely and labeled automatically. Otherwise a lateral-medial code (e.g.{" "}
+        <span className="mono">LTMI</span>) or superior-inferior code (e.g. <span className="mono">LAI</span>)
+        is placed from the region configuration -- verify placement afterward.
       </p>
       <div className="field">
         <label>Electrode name</label>

@@ -1,29 +1,29 @@
-TargetName,PreferredEntry,TargetX,TargetY,EntryX,EntryY,Category,Comments
-Amygdala (Left),L Anterior MTG,292,1005,258,270,Mesial Temporal,Anterior mesial temporal target.
-Amygdala (Right),R Anterior MTG,1196,1005,1162,270,Mesial Temporal,Anterior mesial temporal target.
-Hippocampus Head (Left),L Anterior MTG,325,1035,292,288,Mesial Temporal,Anterior hippocampal target.
-Hippocampus Head (Right),R Anterior MTG,1230,1035,1196,288,Mesial Temporal,Anterior hippocampal target.
-Hippocampus Body (Left),L Mid MTG,393,1047,359,294,Mesial Temporal,Mid hippocampal body target.
-Hippocampus Body (Right),R Mid MTG,1298,1047,1264,294,Mesial Temporal,Mid hippocampal body target.
-Hippocampus Tail (Left),L Posterior MTG,469,1035,426,282,Mesial Temporal,Posterior hippocampal target.
-Hippocampus Tail (Right),R Posterior MTG,1375,1035,1332,282,Mesial Temporal,Posterior hippocampal target.
-Parahippocampal Gyrus (Left),L Mid MTG,359,1083,325,318,Mesial Temporal,"Mesial temporal, inferior to hippocampus."
-Parahippocampal Gyrus (Right),R Mid MTG,1264,1083,1230,318,Mesial Temporal,"Mesial temporal, inferior to hippocampus."
-Temporal Pole (Left),L Anterior STG,123,348,89,318,Temporal,Anterior temporal tip target.
-Temporal Pole (Right),R Anterior STG,1025,349,990,318,Temporal,Anterior temporal tip target.
-Fusiform Gyrus (Left),L Inferior Temporal,376,1143,342,348,Temporal,Basal/inferior temporal target.
-Fusiform Gyrus (Right),R Inferior Temporal,1281,1143,1247,349,Temporal,Basal/inferior temporal target.
-Anterior Insula (Left),L Frontal Operculum,258,186,207,149,Insula,Approached via frontal operculum.
-Anterior Insula (Right),R Frontal Operculum,1162,186,1110,150,Insula,Approached via frontal operculum.
-Posterior Insula (Left),L Parietal Operculum,359,198,410,161,Insula,Approached via parietal operculum.
-Posterior Insula (Right),R Parietal Operculum,1264,198,1315,162,Insula,Approached via parietal operculum.
-Orbitofrontal Cortex (Left),L Superior Frontal Gyrus,140,915,123,125,Frontal,Orbital surface target.
-Orbitofrontal Cortex (Right),R Superior Frontal Gyrus,1042,915,1025,126,Frontal,Orbital surface target.
-Anterior Cingulate (Left),L Superior Frontal Gyrus,275,855,174,759,Cingulate,Anterior cingulate gyrus target.
-Anterior Cingulate (Right),R Superior Frontal Gyrus,1179,855,1076,759,Cingulate,Anterior cingulate gyrus target.
-Posterior Cingulate (Left),L Superior Parietal Lobule,469,855,528,759,Cingulate,Posterior cingulate/precuneus border.
-Posterior Cingulate (Right),R Superior Parietal Lobule,1375,855,1435,759,Cingulate,Posterior cingulate/precuneus border.
-Precuneus (Left),L Superior Parietal Lobule,528,843,561,747,Parietal,Medial parietal target.
-Precuneus (Right),R Superior Parietal Lobule,1435,843,1469,747,Parietal,Medial parietal target.
-Supplementary Motor Area (Left),L Superior Frontal Gyrus,384,783,342,723,Frontal,Mesial premotor target.
-Supplementary Motor Area (Right),R Superior Frontal Gyrus,1290,783,1247,723,Frontal,Mesial premotor target.
+ElectrodeName,TargetName,PreferredEntry,TargetX,TargetY,EntryX,EntryY,Category,Comments
+LTAI,Amygdala (Left),L Anterior MTG,292,1005,258,270,Mesial Temporal,Anterior mesial temporal target.
+RTAI,Amygdala (Right),R Anterior MTG,1196,1005,1162,270,Mesial Temporal,Anterior mesial temporal target.
+LTAM,Hippocampus Head (Left),L Anterior MTG,325,1035,292,288,Mesial Temporal,Anterior hippocampal target.
+RTAM,Hippocampus Head (Right),R Anterior MTG,1230,1035,1196,288,Mesial Temporal,Anterior hippocampal target.
+LTMM,Hippocampus Body (Left),L Mid MTG,393,1047,359,294,Mesial Temporal,Mid hippocampal body target.
+RTMM,Hippocampus Body (Right),R Mid MTG,1298,1047,1264,294,Mesial Temporal,Mid hippocampal body target.
+LTPM,Hippocampus Tail (Left),L Posterior MTG,469,1035,426,282,Mesial Temporal,Posterior hippocampal target.
+RTPM,Hippocampus Tail (Right),R Posterior MTG,1375,1035,1332,282,Mesial Temporal,Posterior hippocampal target.
+LTMI,Parahippocampal Gyrus (Left),L Mid MTG,359,1083,325,318,Mesial Temporal,"Mesial temporal, inferior to hippocampus."
+RTMI,Parahippocampal Gyrus (Right),R Mid MTG,1264,1083,1230,318,Mesial Temporal,"Mesial temporal, inferior to hippocampus."
+LTAS,Temporal Pole (Left),L Anterior STG,123,348,89,318,Temporal,Anterior temporal tip target.
+RTAS,Temporal Pole (Right),R Anterior STG,1025,349,990,318,Temporal,Anterior temporal tip target.
+LTPI,Fusiform Gyrus (Left),L Inferior Temporal,376,1143,342,348,Temporal,Basal/inferior temporal target.
+RTPI,Fusiform Gyrus (Right),R Inferior Temporal,1281,1143,1247,349,Temporal,Basal/inferior temporal target.
+LIAM,Anterior Insula (Left),L Frontal Operculum,258,186,207,149,Insula,Approached via frontal operculum.
+RIAM,Anterior Insula (Right),R Frontal Operculum,1162,186,1110,150,Insula,Approached via frontal operculum.
+LIPM,Posterior Insula (Left),L Parietal Operculum,359,198,410,161,Insula,Approached via parietal operculum.
+RIPM,Posterior Insula (Right),R Parietal Operculum,1264,198,1315,162,Insula,Approached via parietal operculum.
+LFAI,Orbitofrontal Cortex (Left),L Superior Frontal Gyrus,140,915,123,125,Frontal,Orbital surface target.
+RFAI,Orbitofrontal Cortex (Right),R Superior Frontal Gyrus,1042,915,1025,126,Frontal,Orbital surface target.
+LCAS,Anterior Cingulate (Left),L Superior Frontal Gyrus,275,855,174,759,Cingulate,Anterior cingulate gyrus target.
+RCAS,Anterior Cingulate (Right),R Superior Frontal Gyrus,1179,855,1076,759,Cingulate,Anterior cingulate gyrus target.
+LCPS,Posterior Cingulate (Left),L Superior Parietal Lobule,469,855,528,759,Cingulate,Posterior cingulate/precuneus border.
+RCPS,Posterior Cingulate (Right),R Superior Parietal Lobule,1375,855,1435,759,Cingulate,Posterior cingulate/precuneus border.
+LPPS,Precuneus (Left),L Superior Parietal Lobule,528,843,561,747,Parietal,Medial parietal target.
+RPPS,Precuneus (Right),R Superior Parietal Lobule,1435,843,1469,747,Parietal,Medial parietal target.
+LFMS,Supplementary Motor Area (Left),L Superior Frontal Gyrus,384,783,342,723,Frontal,Mesial premotor target.
+RFMS,Supplementary Motor Area (Right),R Superior Frontal Gyrus,1290,783,1247,723,Frontal,Mesial premotor target.
