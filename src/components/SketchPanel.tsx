@@ -5,6 +5,7 @@ export default function SketchPanel() {
   const selectedSketchId = useStore((s) => s.selectedSketchId);
   const setSelectedSketchId = useStore((s) => s.setSelectedSketchId);
   const updateSketch = useStore((s) => s.updateSketch);
+  const duplicateSketch = useStore((s) => s.duplicateSketch);
   const removeSketch = useStore((s) => s.removeSketch);
   const drawMode = useStore((s) => s.drawMode);
 
@@ -51,6 +52,16 @@ export default function SketchPanel() {
                     background: "transparent",
                   }}
                 />
+                <button
+                  className="btn btn-ghost btn-sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    duplicateSketch(sk.id);
+                  }}
+                  title="Duplicate this area"
+                >
+                  Duplicate
+                </button>
                 <button
                   className="btn btn-ghost btn-sm btn-danger"
                   onClick={(e) => {

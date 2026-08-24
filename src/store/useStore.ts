@@ -20,6 +20,7 @@ import {
   parseLateralMedialName,
 } from "../lib/nomenclature";
 import { gridPositionInQuadrant, pixelToNormalized } from "../lib/coords";
+import { clampTranslation } from "../lib/geometry";
 
 const PALETTE = [
   "#2F6F6B", "#C0392B", "#8E5AC8", "#D68910", "#2E6DA4",
@@ -80,6 +81,7 @@ interface StoreState {
 
   // actions: sketches
   addSketch: (points: Point[]) => void;
+  duplicateSketch: (id: string) => void;
   updateSketch: (id: string, patch: Partial<FreehandSketch>) => void;
   removeSketch: (id: string) => void;
 
@@ -401,6 +403,25 @@ export const useStore = create<StoreState>((set, get) => ({
       updatedAt: nowISO(),
     };
     set({ sketches: [...s.sketches, sketch], selectedSketchId: sketch.id });
+    scheduleAutosave(get);
+  },
+
+  duplicateSketch: (id) => {
+    const s = get();
+    const original = s.sketches.find((sk) => sk.id === id);
+    if (!original) return;
+    // Offset slightly so the copy doesn't sit exactly on top of the original, clamped to
+    // stay within the image bounds (same rigid-translate logic used for dragging).
+    const { x: dx, y: dy } = clampTranslation(original.points, 0.025, 0.025);
+    const copy: FreehandSketch = {
+      ...original,
+      id: uuid(),
+      label: `${original.label} copy`,
+      points: original.points.map((p) => ({ x: p.x + dx, y: p.y + dy })),
+      createdAt: nowISO(),
+      updatedAt: nowISO(),
+    };
+    set({ sketches: [...s.sketches, copy], selectedSketchId: copy.id });
     scheduleAutosave(get);
   },
 
