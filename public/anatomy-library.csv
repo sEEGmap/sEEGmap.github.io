@@ -1,8 +1,6 @@
 ElectrodeName,TargetName,PreferredEntry,TargetX,TargetY,EntryX,EntryY,Category,Comments
-LTAI,Amygdala (Left),L Anterior MTG,292,1005,258,270,Mesial Temporal,Anterior mesial temporal target.
-RTAI,Amygdala (Right),R Anterior MTG,1196,1005,1162,270,Mesial Temporal,Anterior mesial temporal target.
-LTAM,Hippocampus Head (Left),L Anterior MTG,325,1035,292,288,Mesial Temporal,Anterior hippocampal target.
-RTAM,Hippocampus Head (Right),R Anterior MTG,1230,1035,1196,288,Mesial Temporal,Anterior hippocampal target.
+LTAM,Amygdala (Left),L Anterior MTG,384,1128,359,481,Mesial Temporal,Amygdala target.
+RTAM,Amygdala (Right),R Anterior MTG,1377,1120,1384,470,Mesial Temporal,Amygdala target.
 LTMM,Hippocampus Body (Left),L Mid MTG,393,1047,359,294,Mesial Temporal,Mid hippocampal body target.
 RTMM,Hippocampus Body (Right),R Mid MTG,1298,1047,1264,294,Mesial Temporal,Mid hippocampal body target.
 LTPM,Hippocampus Tail (Left),L Posterior MTG,469,1035,426,282,Mesial Temporal,Posterior hippocampal target.
