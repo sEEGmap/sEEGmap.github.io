@@ -30,7 +30,7 @@ export default function AnatomyBuilder() {
   const [pickMode, setPickMode] = useState<PickMode>("target");
   const [changedIds, setChangedIds] = useState<Set<string>>(() => {
     try {
-      const raw = window.localStorage.getItem("seegmap-anatomy-builder-changes");
+      const raw = window.localStorage.getItem("seegplan-anatomy-builder-changes");
       return new Set<string>(raw ? JSON.parse(raw) : []);
     } catch {
       return new Set<string>();
@@ -44,7 +44,7 @@ export default function AnatomyBuilder() {
       const next = new Set(ids);
       next.add(id);
       try {
-        window.localStorage.setItem("seegmap-anatomy-builder-changes", JSON.stringify([...next]));
+        window.localStorage.setItem("seegplan-anatomy-builder-changes", JSON.stringify([...next]));
       } catch {
         // Local persistence is best-effort; the current session still tracks the changes.
       }
@@ -209,7 +209,7 @@ export default function AnatomyBuilder() {
             className="btn btn-sm"
             onClick={() => {
               setChangedIds(new Set());
-              try { window.localStorage.removeItem("seegmap-anatomy-builder-changes"); } catch {}
+              try { window.localStorage.removeItem("seegplan-anatomy-builder-changes"); } catch {}
               setStatus("Builder export queue cleared. Library records were not changed.");
             }}
             disabled={!changedIds.size}
@@ -313,7 +313,7 @@ export default function AnatomyBuilder() {
         </div>
 
         {/* Brain Figure Container */}
-        <div style={{ width: "100%", maxWidth: 1000, margin: "0 auto" }}>
+        <div style={{ width: "100%", maxWidth: 800, margin: "0 auto" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 7 }}>
             <span style={{ fontSize: 12, color: "var(--muted)" }}>Click to set <strong>{pickMode === "target" ? "TARGET" : "ENTRY"}</strong></span>
             <span className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>

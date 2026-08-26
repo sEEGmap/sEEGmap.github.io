@@ -1,4 +1,4 @@
-// Core data model for sEEGmap.
+// Core data model for sEEGplan.
 // Coordinates are normalized (0..1) relative to the full brain-template.png image,
 // which is the single master coordinate system for the whole workspace.
 

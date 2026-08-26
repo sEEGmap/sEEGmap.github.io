@@ -53,9 +53,23 @@ export default function ElectrodePanel() {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
       <div style={{ padding: "14px 16px 10px", display: "flex", flexDirection: "column", gap: 10 }}>
-        <button className="btn btn-primary" onClick={() => setShowAdd(true)} style={{ width: "100%" }}>
-          + Add Electrode
-        </button>
+        <div style={{ display: "flex", gap: 6 }}>
+          <button className="btn btn-primary btn-sm" onClick={() => setShowAdd(true)} style={{ flex: 1 }}>
+            + Add Electrode
+          </button>
+          <button
+            className="btn btn-sm"
+            disabled={!selectedId}
+            title="Mirror the selected electrode to the opposite hemisphere"
+            onClick={() => {
+              if (!selectedId) return;
+              const result = mirrorElectrode(selectedId);
+              if (!result.ok) window.alert(result.message);
+            }}
+          >
+            Mirror to R/L
+          </button>
+        </div>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <strong style={{ fontSize: 14 }}>Electrodes</strong>
           <span className="badge">{electrodes.length}</span>
@@ -71,20 +85,6 @@ export default function ElectrodePanel() {
             fontSize: 13,
           }}
         />
-        <div style={{ display: "flex", gap: 6 }}>
-          <button
-            className="btn btn-sm"
-            disabled={!selectedId}
-            title="Mirror the selected electrode to the opposite hemisphere"
-            onClick={() => {
-              if (!selectedId) return;
-              const result = mirrorElectrode(selectedId);
-              if (!result.ok) window.alert(result.message);
-            }}
-          >
-            Mirror to R/L
-          </button>
-        </div>
       </div>
 
       {electrodes.length > 0 && (

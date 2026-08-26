@@ -25,7 +25,7 @@ export default function AnatomyLibraryPage() {
   const replaceAnatomyLibrary = useStore((s) => s.replaceAnatomyLibrary);
 
   const [query, setQuery] = useState("");
-  const [tab, setTab] = useState<"library" | "builder" | "superiorInferior">("library");
+  const [tab, setTab] = useState<"library" | "builder" | "si-builder">("library");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState(emptyDraft);
   const [adding, setAdding] = useState(false);
@@ -181,20 +181,20 @@ export default function AnatomyLibraryPage() {
         </button>
         <button
           className="btn btn-sm"
-          onClick={() => setTab("superiorInferior")}
+          onClick={() => setTab("si-builder")}
           style={{
             borderRadius: "8px 8px 0 0",
-            borderBottomColor: tab === "superiorInferior" ? "var(--accent)" : "transparent",
-            color: tab === "superiorInferior" ? "var(--accent)" : "var(--muted)",
+            borderBottomColor: tab === "si-builder" ? "var(--accent)" : "transparent",
+            color: tab === "si-builder" ? "var(--accent)" : "var(--muted)",
           }}
         >
-          S→I Click-to-build
+          Click-to-build (S–I)
         </button>
       </div>
 
       {tab === "builder" ? (
         <AnatomyBuilder />
-      ) : tab === "superiorInferior" ? (
+      ) : tab === "si-builder" ? (
         <SuperiorInferiorBuilder />
       ) : (
         <>
