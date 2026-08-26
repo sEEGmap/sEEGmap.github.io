@@ -1,5 +1,4 @@
 {
-  "_comment": "Auto-placement anchors for superior-inferior electrodes, keyed by exact electrode name. Coordinates are in reference pixel space (see brain-regions.json referenceWidth/referenceHeight). lateralStart/lateralEnd render as filled circles with a connecting trajectory line in the Lateral quadrant for that hemisphere; medialStart/medialEnd render as X marks with a connecting line in the Medial quadrant. These are starter positions only -- verify and drag to the correct location before use.",
   "LAI": {
     "lateralStart": [
       157,
