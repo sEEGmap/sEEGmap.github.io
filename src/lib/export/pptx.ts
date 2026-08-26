@@ -53,8 +53,8 @@ export async function exportWorkspacePptx({
   filename,
 }: PptxOptions) {
   const pptx = new PptxGenJS();
-  pptx.defineLayout({ name: "SEEGPLAN_16x9", width: SLIDE_W, height: SLIDE_H });
-  pptx.layout = "SEEGPLAN_16x9";
+  pptx.defineLayout({ name: "SEEGMAP_16x9", width: SLIDE_W, height: SLIDE_H });
+  pptx.layout = "SEEGMAP_16x9";
 
   const base = (import.meta as unknown as { env: { BASE_URL: string } }).env.BASE_URL;
   const bgFull = await fetchImageAsDataUrl(`${base}brain-template.png`);

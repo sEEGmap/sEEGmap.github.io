@@ -5,7 +5,7 @@ import ElectrodePanel from "../components/ElectrodePanel";
 import { exportWorkspacePng } from "../lib/export/png";
 import { exportWorkspacePdf } from "../lib/export/pdf";
 import { exportWorkspacePptx } from "../lib/export/pptx";
-import { saveSeegplanFile } from "../lib/export/seegplan";
+import { saveSeegmapFile } from "../lib/export/seegmap";
 import { REF_H, REF_W } from "../lib/constants";
 
 export default function Planner() {
@@ -100,7 +100,7 @@ export default function Planner() {
     resizingRef.current = null;
   };
 
-  const baseFilename = () => (patientLabel.trim() ? patientLabel.trim().replace(/\s+/g, "_") : "seegplan_export");
+  const baseFilename = () => (patientLabel.trim() ? patientLabel.trim().replace(/\s+/g, "_") : "seegmap_export");
 
   const runExport = async (kind: "png" | "pdf" | "pptx") => {
     if (!canvasWrapRef.current) return;
@@ -134,9 +134,9 @@ export default function Planner() {
     }
   };
 
-  const handleSaveSeegplan = () => {
+  const handleSaveSeegmap = () => {
     const file = exportPlanFile();
-    saveSeegplanFile(file, baseFilename());
+    saveSeegmapFile(file, baseFilename());
   };
 
   return (
@@ -201,8 +201,8 @@ export default function Planner() {
             <button className="btn btn-sm" disabled={redoCount === 0} onClick={redo}>↷ Redo</button>
           </div>
           <div style={{ flex: 1 }} />
-          <button className="btn btn-sm" onClick={handleSaveSeegplan}>
-            Save .seegplan
+          <button className="btn btn-sm" onClick={handleSaveSeegmap}>
+            Save .seegmap
           </button>
           <button className="btn btn-sm" disabled={busy !== null} onClick={() => runExport("png")}>
             {busy === "png" ? "Exporting…" : "Export PNG"}

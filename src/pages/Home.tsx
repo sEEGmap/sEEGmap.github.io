@@ -56,7 +56,7 @@ export default function Home() {
       const text = await file.text();
       const parsed = JSON.parse(text) as SeegPlanFile;
       if (!Array.isArray(parsed.electrodes)) {
-        throw new Error("File does not look like a valid .seegplan project.");
+        throw new Error("File does not look like a valid sEEGmap (.seegmap) project.");
       }
       loadPlanFile(parsed);
       navigate("/planner");
@@ -158,13 +158,13 @@ export default function Home() {
               Restore Last Session
             </button>
             <button className="btn" style={{ flex: 1 }} onClick={handleImportClick}>
-              Import .seegplan
+              Import .seegmap
             </button>
           </div>
           <input
             ref={fileInputRef}
             type="file"
-            accept=".seegplan,application/json"
+            accept=".seegmap,.seegplan,application/json"
             style={{ display: "none" }}
             onChange={handleFileChange}
           />
