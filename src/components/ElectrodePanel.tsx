@@ -53,6 +53,9 @@ export default function ElectrodePanel() {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
       <div style={{ padding: "14px 16px 10px", display: "flex", flexDirection: "column", gap: 10 }}>
+        <button className="btn btn-primary" onClick={() => setShowAdd(true)} style={{ width: "100%" }}>
+          + Add Electrode
+        </button>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <strong style={{ fontSize: 14 }}>Electrodes</strong>
           <span className="badge">{electrodes.length}</span>
@@ -69,9 +72,6 @@ export default function ElectrodePanel() {
           }}
         />
         <div style={{ display: "flex", gap: 6 }}>
-          <button className="btn btn-primary btn-sm" onClick={() => setShowAdd(true)}>
-            + Add Electrode
-          </button>
           <button
             className="btn btn-sm"
             disabled={!selectedId}

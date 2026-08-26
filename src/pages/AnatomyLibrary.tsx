@@ -3,6 +3,7 @@ import Papa from "papaparse";
 import { useStore } from "../store/useStore";
 import type { AnatomyRecord } from "../types";
 import AnatomyBuilder from "../components/AnatomyBuilder";
+import SuperiorInferiorBuilder from "../components/SuperiorInferiorBuilder";
 
 const emptyDraft = {
   electrodeName: "",
@@ -24,7 +25,7 @@ export default function AnatomyLibraryPage() {
   const replaceAnatomyLibrary = useStore((s) => s.replaceAnatomyLibrary);
 
   const [query, setQuery] = useState("");
-  const [tab, setTab] = useState<"library" | "builder">("library");
+  const [tab, setTab] = useState<"library" | "builder" | "superiorInferior">("library");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState(emptyDraft);
   const [adding, setAdding] = useState(false);
@@ -178,10 +179,23 @@ export default function AnatomyLibraryPage() {
         >
           Click-to-build
         </button>
+        <button
+          className="btn btn-sm"
+          onClick={() => setTab("superiorInferior")}
+          style={{
+            borderRadius: "8px 8px 0 0",
+            borderBottomColor: tab === "superiorInferior" ? "var(--accent)" : "transparent",
+            color: tab === "superiorInferior" ? "var(--accent)" : "var(--muted)",
+          }}
+        >
+          S→I Click-to-build
+        </button>
       </div>
 
       {tab === "builder" ? (
         <AnatomyBuilder />
+      ) : tab === "superiorInferior" ? (
+        <SuperiorInferiorBuilder />
       ) : (
         <>
       <input

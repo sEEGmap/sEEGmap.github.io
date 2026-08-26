@@ -38,7 +38,7 @@ export default function App() {
         >
           <NavLink to="/" style={{ display: "flex", alignItems: "center", gap: 9, textDecoration: "none", color: "var(--ink)" }}>
             <Mark size={22} />
-            <span style={{ fontWeight: 700, fontSize: 15, letterSpacing: "-0.01em" }}>sEEGplan</span>
+            <span style={{ fontWeight: 700, fontSize: 15, letterSpacing: "-0.01em" }}>sEEGmap</span>
           </NavLink>
           <nav style={{ display: "flex", gap: 4 }}>
             <NavTab to="/planner">Planner</NavTab>

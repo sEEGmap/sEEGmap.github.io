@@ -25,7 +25,7 @@ export async function exportWorkspacePdf({
   const margin = 36;
 
   // ---------- Page 1: Overview ----------
-  drawHeader(doc, "sEEGplan -- Overview", patientLabel, institution, pageW, margin);
+  drawHeader(doc, "sEEGmap -- Overview", patientLabel, institution, pageW, margin);
   const dataUrl = await captureNode(node, 2);
   const { width: iw, height: ih } = await getImageSize(dataUrl);
   const availW = pageW - margin * 2;
@@ -37,7 +37,7 @@ export async function exportWorkspacePdf({
 
   // ---------- Page 2: Electrode Table ----------
   doc.addPage();
-  drawHeader(doc, "sEEGplan -- Electrode Table", patientLabel, institution, pageW, margin);
+  drawHeader(doc, "sEEGmap -- Electrode Table", patientLabel, institution, pageW, margin);
   const sorted = [...electrodes].sort((a, b) => a.order - b.order);
   const cols = [
     { key: "order", label: "#", w: 26 },
@@ -83,7 +83,7 @@ export async function exportWorkspacePdf({
 
   // ---------- Page 3: Notes ----------
   doc.addPage();
-  drawHeader(doc, "sEEGplan -- Notes", patientLabel, institution, pageW, margin);
+  drawHeader(doc, "sEEGmap -- Notes", patientLabel, institution, pageW, margin);
   y = margin + 60;
   doc.setFontSize(11);
   doc.setFont("helvetica", "bold");

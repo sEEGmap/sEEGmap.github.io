@@ -92,7 +92,7 @@ export default function Home() {
             letterSpacing: "-0.02em",
           }}
         >
-          sEEGplan
+          sEEGmap
         </h1>
         <p style={{ marginTop: 8, marginBottom: 0, color: "var(--muted)", fontSize: 15.5 }}>
           Interactive 2D stereoelectroencephalography planning

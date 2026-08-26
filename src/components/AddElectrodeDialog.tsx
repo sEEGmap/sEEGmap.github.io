@@ -10,10 +10,10 @@ import {
   isNameTaken,
 } from "../lib/nomenclature";
 
-type Tab = "name" | "anatomy" | "library" | "manual";
+type Tab = "library" | "name" | "manual" | "anatomy";
 
 export default function AddElectrodeDialog({ onClose }: { onClose: () => void }) {
-  const [tab, setTab] = useState<Tab>("name");
+  const [tab, setTab] = useState<Tab>("library");
 
   return (
     <div
@@ -48,17 +48,17 @@ export default function AddElectrodeDialog({ onClose }: { onClose: () => void })
           </button>
         </div>
         <div style={{ display: "flex", gap: 4, padding: "10px 18px 0" }}>
-          <TabButton active={tab === "name"} onClick={() => setTab("name")}>
-            By Name
-          </TabButton>
-          <TabButton active={tab === "anatomy"} onClick={() => setTab("anatomy")}>
-            By Target
-          </TabButton>
           <TabButton active={tab === "library"} onClick={() => setTab("library")}>
             Library
           </TabButton>
+          <TabButton active={tab === "name"} onClick={() => setTab("name")}>
+            By Name
+          </TabButton>
           <TabButton active={tab === "manual"} onClick={() => setTab("manual")}>
             Manual
+          </TabButton>
+          <TabButton active={tab === "anatomy"} onClick={() => setTab("anatomy")}>
+            By Target
           </TabButton>
         </div>
         <div className="scroll" style={{ padding: 18, flex: 1 }}>

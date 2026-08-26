@@ -1,4 +1,4 @@
-# sEEGplan
+# sEEGmap
 
 Interactive 2D stereoelectroencephalography (sEEG) planning tool for epilepsy surgery
 planning. Entirely browser-based: no backend, no authentication, no cloud dependency.
@@ -7,7 +7,7 @@ https://seegplan.github.io/sEEGplan/
 
 **Planning aid only. Not intended to replace physician judgment.**
 
-Build using Anthropic Claude Sonnet 5 (Medium) - beware of errors.
+Build using Anthropic Claude Sonnet 5 and CharGPT - beware of errors.
 
 ## Stack
 
