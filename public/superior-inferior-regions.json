@@ -1,7 +1,9 @@
 {
   "_comment": "Auto-placement anchors for superior-inferior electrodes, keyed by exact electrode name. Coordinates are in reference pixel space (see brain-regions.json referenceWidth/referenceHeight). lateralStart/lateralEnd render as filled circles with a connecting trajectory line in the Lateral quadrant for that hemisphere; medialStart/medialEnd render as X marks with a connecting line in the Medial quadrant. These are starter positions only -- verify and drag to the correct location before use.",
-  "LAI": { "lateralStart": [300, 90],  "lateralEnd": [300, 260], "medialStart": [260, 760], "medialEnd": [260, 980] },
-  "RAI": { "lateralStart": [1465, 90], "lateralEnd": [1465, 260], "medialStart": [1505, 760], "medialEnd": [1505, 980] },
-  "LPF": { "lateralStart": [620, 90],  "lateralEnd": [620, 260], "medialStart": [640, 760], "medialEnd": [640, 980] },
-  "RPF": { "lateralStart": [1145, 90], "lateralEnd": [1145, 260], "medialStart": [1125, 760], "medialEnd": [1125, 980] }
+  "LAI": { "lateralStart": [157, 210], "lateralEnd": [335, 441], "medialStart": [140,864], "medialEnd": [355,1033] },
+  "RAI": { "lateralStart": [1599, 210],"lateralEnd": [1428, 430], "medialStart": [1624,864], "medialEnd": [1433, 1042]},
+  "LPI": { "lateralStart": [541, 81], "lateralEnd": [393,403],"medialStart": [570,749],"medialEnd": [439,1042] },
+  "RPI": { "lateralStart": [1231, 88], "lateralEnd": [1369, 405], "medialStart": [1215, 758], "medialEnd": [1326,1022]},
+  "LFO": { "lateralStart": [98,272],"lateralEnd": [184,492],"medialStart": [91,944],"medialEnd": [162,1144]},
+  "RFO": { "lateralStart": [1666,303],"lateralEnd": [1546,450],"medialStart": [1695,1002],"medialEnd": [1517,1131]}
 }
