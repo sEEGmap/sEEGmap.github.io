@@ -17,6 +17,8 @@ const emptyDraft: SIAnchor = {
   lateralEnd: [REF_W * 0.2, REF_H * 0.25],
   medialStart: [REF_W * 0.18, REF_H * 0.65],
   medialEnd: [REF_W * 0.18, REF_H * 0.82],
+  preferredEntry: "",
+  targetName: "",
 };
 
 const STORAGE_KEY = "seegmap-si-builder-changes";
@@ -155,8 +157,9 @@ export default function SuperiorInferiorBuilder() {
           <p style={{ margin: "5px 0 0", fontSize: 12.5, color: "var(--muted)", lineHeight: 1.45 }}>
             Click-to-build tool for superior-to-inferior electrodes (e.g. <span className="mono">LAI</span>,{" "}
             <span className="mono">RPF</span>). Place the lateral start/end (filled circles) and medial
-            start/end (X marks) points, then export the queue as JSON to merge into{" "}
-            <span className="mono">public/superior-inferior-regions.json</span> by hand.
+            start/end (X marks) points, optionally add a preferred entry/target label, then export the
+            queue as JSON to merge into <span className="mono">public/superior-inferior-regions.json</span> by
+            hand.
           </p>
         </div>
         <div style={{ display: "flex", gap: 7 }}>
@@ -217,6 +220,17 @@ export default function SuperiorInferiorBuilder() {
 
       <div style={{ display: "flex", flexDirection: "column", gap: 20, marginTop: 14 }}>
         <div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
+            <div className="field">
+              <label>Preferred entry (label)</label>
+              <input value={draft.preferredEntry ?? ""} onChange={(e) => setDraft({ ...draft, preferredEntry: e.target.value })} placeholder="e.g. Superior frontal sulcus" />
+            </div>
+            <div className="field">
+              <label>Target name</label>
+              <input value={draft.targetName ?? ""} onChange={(e) => setDraft({ ...draft, targetName: e.target.value })} placeholder="e.g. Insula (Left)" />
+            </div>
+          </div>
+
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", margin: "0 0 10px" }}>
             {(Object.keys(PICK_LABELS) as PickMode[]).map((mode) => (
               <button
@@ -295,6 +309,11 @@ export default function SuperiorInferiorBuilder() {
                 <div key={k} className="card" style={{ padding: "6px 10px", display: "flex", alignItems: "center", gap: 10 }}>
                   <span className="mono" style={{ fontWeight: 700, fontSize: 12.5 }}>{k}</span>
                   <span style={{ fontSize: 11, color: "var(--muted)", flex: 1 }}>
+                    {(queued[k].targetName || queued[k].preferredEntry) && (
+                      <>
+                        {queued[k].targetName || "—"} · entry: {queued[k].preferredEntry || "—"} ·{" "}
+                      </>
+                    )}
                     lat ({queued[k].lateralStart[0]}, {queued[k].lateralStart[1]}) → ({queued[k].lateralEnd[0]}, {queued[k].lateralEnd[1]}) ·
                     {" "}med ({queued[k].medialStart[0]}, {queued[k].medialStart[1]}) → ({queued[k].medialEnd[0]}, {queued[k].medialEnd[1]})
                   </span>

@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
 import { useStore } from "../store/useStore";
-import type { AnatomyRecord } from "../types";
 import {
   AMP_CODES,
   LOBE_CODES,
@@ -217,8 +216,17 @@ function SortHeader({
   );
 }
 
+type LibraryRow = {
+  id: string;
+  kind: "lm" | "si";
+  electrodeName: string;
+  preferredEntry: string;
+  targetName: string;
+};
+
 function LibraryTab({ onDone }: { onDone: () => void }) {
   const anatomy = useStore((s) => s.anatomy);
+  const siRegions = useStore((s) => s.siRegions);
   const electrodes = useStore((s) => s.electrodes);
   const addByName = useStore((s) => s.addByName);
   const addByAnatomy = useStore((s) => s.addByAnatomy);
@@ -227,34 +235,54 @@ function LibraryTab({ onDone }: { onDone: () => void }) {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  const isAlreadyPlaced = (record: AnatomyRecord) => {
-    const code = (record.electrodeName || "").trim().toUpperCase();
+  const anatomyById = useMemo(() => new Map(anatomy.map((a) => [a.id, a])), [anatomy]);
+
+  const rows = useMemo<LibraryRow[]>(() => {
+    const lmRows: LibraryRow[] = anatomy.map((a) => ({
+      id: `lm:${a.id}`,
+      kind: "lm",
+      electrodeName: a.electrodeName || "",
+      preferredEntry: a.preferredEntry || "",
+      targetName: a.targetName,
+    }));
+    const siRows: LibraryRow[] = Object.entries(siRegions || {}).map(([name, anchor]) => ({
+      id: `si:${name}`,
+      kind: "si",
+      electrodeName: name,
+      preferredEntry: anchor.preferredEntry || "",
+      targetName: anchor.targetName || "",
+    }));
+    return [...lmRows, ...siRows];
+  }, [anatomy, siRegions]);
+
+  const isAlreadyPlaced = (row: LibraryRow) => {
+    const code = row.electrodeName.trim().toUpperCase();
     return electrodes.some(
-      (e) => (code && e.name.trim().toUpperCase() === code) || (e.targetName && e.targetName === record.targetName)
+      (e) => (code && e.name.trim().toUpperCase() === code) || (row.targetName && e.targetName === row.targetName)
     );
   };
 
   const sorted = useMemo(() => {
-    const list = [...anatomy];
+    const list = [...rows];
     list.sort((a, b) => {
-      const av = (a[sortKey] || "").toString();
-      const bv = (b[sortKey] || "").toString();
+      const av = a[sortKey] || "";
+      const bv = b[sortKey] || "";
       // blank electrode-name entries sink to the bottom regardless of direction
       if (sortKey === "electrodeName" && !!av !== !!bv) return av ? -1 : 1;
       const cmp = av.localeCompare(bv, undefined, { numeric: true, sensitivity: "base" });
       return sortDir === "asc" ? cmp : -cmp;
     });
     return list;
-  }, [anatomy, sortKey, sortDir]);
+  }, [rows, sortKey, sortDir]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return sorted;
     return sorted.filter(
-      (a) =>
-        a.targetName.toLowerCase().includes(q) ||
-        a.preferredEntry.toLowerCase().includes(q) ||
-        (a.electrodeName || "").toLowerCase().includes(q)
+      (r) =>
+        r.targetName.toLowerCase().includes(q) ||
+        r.preferredEntry.toLowerCase().includes(q) ||
+        r.electrodeName.toLowerCase().includes(q)
     );
   }, [sorted, query]);
 
@@ -276,17 +304,23 @@ function LibraryTab({ onDone }: { onDone: () => void }) {
     });
   };
 
-  const placeOne = (record: AnatomyRecord) => {
-    const code = (record.electrodeName || "").trim().toUpperCase();
-    if (code && !isNameTaken(code, useStore.getState().electrodes)) {
-      addByName(code);
-    } else {
-      addByAnatomy(record);
+  const placeOne = (row: LibraryRow) => {
+    const code = row.electrodeName.trim().toUpperCase();
+    const notTaken = code && !isNameTaken(code, useStore.getState().electrodes);
+    if (row.kind === "si") {
+      if (notTaken) addByName(code);
+      return;
     }
+    if (notTaken) {
+      addByName(code);
+      return;
+    }
+    const record = anatomyById.get(row.id.slice(3));
+    if (record) addByAnatomy(record);
   };
 
-  const addOneAndClose = (record: AnatomyRecord) => {
-    placeOne(record);
+  const addOneAndClose = (row: LibraryRow) => {
+    placeOne(row);
     onDone();
   };
 
@@ -316,8 +350,8 @@ function LibraryTab({ onDone }: { onDone: () => void }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <p style={{ margin: 0, fontSize: 13, color: "var(--muted)", lineHeight: 1.5 }}>
-        Browse the full anatomical library. Check rows and add several at once, or add one directly.
-        Entries already in your plan are marked "Added".
+        Browse the anatomical library plus the superior-inferior (S–I) config -- check rows and add several
+        at once, or add one directly. Entries already in your plan are marked "Added".
       </p>
       <div className="field">
         <label>Filter</label>
@@ -350,7 +384,8 @@ function LibraryTab({ onDone }: { onDone: () => void }) {
       <div style={{ display: "flex", flexDirection: "column", maxHeight: 320, overflowY: "auto" }}>
         {filtered.length === 0 && (
           <div style={{ fontSize: 13, color: "var(--muted)", padding: "10px 4px" }}>
-            No matches. Add entries in Settings → Anatomical Library.
+            No matches. Add entries in Settings → Anatomical Library (lateral-medial) or its S–I
+            click-to-build tab (superior-inferior).
           </div>
         )}
         {filtered.map((r) => {
@@ -374,13 +409,18 @@ function LibraryTab({ onDone }: { onDone: () => void }) {
               }}
             >
               <input type="checkbox" checked={checked} onChange={() => toggleRow(r.id)} onClick={(e) => e.stopPropagation()} />
-              <div className="mono" style={{ fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {r.electrodeName || "—"}
+              <div className="mono" style={{ fontWeight: 700, display: "flex", alignItems: "center", gap: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{r.electrodeName || "—"}</span>
+                {r.kind === "si" && (
+                  <span className="badge" style={{ fontSize: 8.5, padding: "1px 4px", flexShrink: 0 }} title="Superior-inferior trajectory">
+                    S–I
+                  </span>
+                )}
               </div>
               <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--muted)" }}>
                 {r.preferredEntry || "—"}
               </div>
-              <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.targetName}</div>
+              <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.targetName || "—"}</div>
               {added ? (
                 <span className="badge" style={{ fontSize: 9.5, color: "var(--accent)", borderColor: "var(--accent)" }}>
                   Added

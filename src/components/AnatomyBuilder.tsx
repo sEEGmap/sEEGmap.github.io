@@ -30,7 +30,7 @@ export default function AnatomyBuilder() {
   const [pickMode, setPickMode] = useState<PickMode>("target");
   const [changedIds, setChangedIds] = useState<Set<string>>(() => {
     try {
-      const raw = window.localStorage.getItem("seegplan-anatomy-builder-changes");
+      const raw = window.localStorage.getItem("seegmap-anatomy-builder-changes");
       return new Set<string>(raw ? JSON.parse(raw) : []);
     } catch {
       return new Set<string>();
@@ -44,7 +44,7 @@ export default function AnatomyBuilder() {
       const next = new Set(ids);
       next.add(id);
       try {
-        window.localStorage.setItem("seegplan-anatomy-builder-changes", JSON.stringify([...next]));
+        window.localStorage.setItem("seegmap-anatomy-builder-changes", JSON.stringify([...next]));
       } catch {
         // Local persistence is best-effort; the current session still tracks the changes.
       }
@@ -209,7 +209,7 @@ export default function AnatomyBuilder() {
             className="btn btn-sm"
             onClick={() => {
               setChangedIds(new Set());
-              try { window.localStorage.removeItem("seegplan-anatomy-builder-changes"); } catch {}
+              try { window.localStorage.removeItem("seegmap-anatomy-builder-changes"); } catch {}
               setStatus("Builder export queue cleared. Library records were not changed.");
             }}
             disabled={!changedIds.size}

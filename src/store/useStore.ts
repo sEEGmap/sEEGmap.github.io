@@ -407,6 +407,8 @@ export const useStore = create<StoreState>((set, get) => ({
         lateralEnd: toN(anchor.lateralEnd),
         medialStart: toN(anchor.medialStart),
         medialEnd: toN(anchor.medialEnd),
+        entryName: anchor.preferredEntry ?? "",
+        targetName: anchor.targetName ?? "",
       });
       void rw; void rh;
       set({ selectedId: created.id });

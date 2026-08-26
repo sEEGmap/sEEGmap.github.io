@@ -8,14 +8,14 @@ export interface SessionMeta {
   updatedAt: string;
 }
 
-class SeegPlanDB extends Dexie {
+class SeegMapDB extends Dexie {
   electrodes!: Table<Electrode, string>;
   anatomy!: Table<AnatomyRecord, string>;
   session!: Table<SessionMeta, string>;
   sketches!: Table<FreehandSketch, string>;
 
   constructor() {
-    super("seegplan-db");
+    super("seegmap-db");
     this.version(1).stores({
       electrodes: "id, order, type, name",
       anatomy: "id, targetName, category",
@@ -38,7 +38,7 @@ class SeegPlanDB extends Dexie {
   }
 }
 
-export const db = new SeegPlanDB();
+export const db = new SeegMapDB();
 
 export async function hasStoredSession(): Promise<boolean> {
   const [electrodeCount, sketchCount] = await Promise.all([db.electrodes.count(), db.sketches.count()]);

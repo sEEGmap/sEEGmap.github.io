@@ -87,6 +87,8 @@ export interface SIAnchor {
   lateralEnd: [number, number];
   medialStart: [number, number];
   medialEnd: [number, number];
+  preferredEntry?: string;
+  targetName?: string;
 }
 
 export type SIRegionsConfig = Record<string, SIAnchor>;
