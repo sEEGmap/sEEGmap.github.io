@@ -216,8 +216,6 @@ export const useStore = create<StoreState>((set, get) => ({
         s.updateElectrode(electrode.id, {
           lateralStart: move(electrode.lateralStart),
           lateralEnd: move(electrode.lateralEnd),
-          medialStart: move(electrode.medialStart),
-          medialEnd: move(electrode.medialEnd),
         });
       }
       return;
@@ -355,8 +353,6 @@ export const useStore = create<StoreState>((set, get) => ({
       color: partial?.color ?? nextColor(s.electrodes),
       lateralStart: partial?.lateralStart ?? { x: 0.5, y: 0.1 },
       lateralEnd: partial?.lateralEnd ?? { x: 0.5, y: 0.3 },
-      medialStart: partial?.medialStart ?? { x: 0.5, y: 0.6 },
-      medialEnd: partial?.medialEnd ?? { x: 0.5, y: 0.8 },
       entryName: partial?.entryName ?? "",
       targetName: partial?.targetName ?? "",
       notes: partial?.notes ?? "",
@@ -405,8 +401,6 @@ export const useStore = create<StoreState>((set, get) => ({
         name,
         lateralStart: toN(anchor.lateralStart),
         lateralEnd: toN(anchor.lateralEnd),
-        medialStart: toN(anchor.medialStart),
-        medialEnd: toN(anchor.medialEnd),
         entryName: anchor.preferredEntry ?? "",
         targetName: anchor.targetName ?? "",
       });
@@ -489,15 +483,13 @@ export const useStore = create<StoreState>((set, get) => ({
         });
       }
     } else {
-      // Superior-inferior electrodes are mirrored geometrically unless a future
-      // dedicated SI library record is added. All four trajectory points flip in X.
+      // Superior-inferior electrodes are mirrored geometrically. The lateral
+      // superior/inferior trajectory points flip in X.
       created = s.addSuperiorInferior({
         name: mirroredName,
         color: source.color,
         lateralStart: { x: 1 - source.lateralStart.x, y: source.lateralStart.y },
         lateralEnd: { x: 1 - source.lateralEnd.x, y: source.lateralEnd.y },
-        medialStart: { x: 1 - source.medialStart.x, y: source.medialStart.y },
-        medialEnd: { x: 1 - source.medialEnd.x, y: source.medialEnd.y },
         entryName: source.entryName,
         targetName: source.targetName,
         notes: source.notes,

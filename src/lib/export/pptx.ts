@@ -39,7 +39,7 @@ function sideOfElectrode(e: Electrode): "L" | "R" {
   const n = e.name.trim().toUpperCase();
   if (n.startsWith("L")) return "L";
   if (n.startsWith("R")) return "R";
-  const nx = e.type === "lateral-medial" ? (e.entry.x + e.target.x) / 2 : (e.lateralStart.x + e.medialStart.x) / 2;
+  const nx = e.type === "lateral-medial" ? (e.entry.x + e.target.x) / 2 : (e.lateralStart.x + e.lateralEnd.x) / 2;
   return nx < 0.5 ? "L" : "R";
 }
 
@@ -168,18 +168,11 @@ export async function exportWorkspacePptx({
       } else {
         const ls = toSlide(e.lateralStart);
         const le = toSlide(e.lateralEnd);
-        const ms = toSlide(e.medialStart);
-        const me = toSlide(e.medialEnd);
         addTrajectoryLine(slide, ls, le, e.color);
         addDot(slide, ls, e.color);
-        addDot(slide, le, e.color);
-        // Medial view: no trajectory line; superior point = dot, inferior point = X.
-        addDot(slide, ms, e.color);
-        addTargetX(slide, me, e.color);
+        addTargetX(slide, le, e.color);
         if (showNames) {
           addNameLabel(slide, ls, e.name, e.color, false);
-          addNameLabel(slide, ms, e.name, e.color, false);
-          addNameLabel(slide, me, e.name, e.color, false);
         }
       }
     });

@@ -8,14 +8,6 @@
       335,
       441
     ],
-    "medialStart": [
-      140,
-      864
-    ],
-    "medialEnd": [
-      355,
-      1033
-    ],
     "preferredEntry": "Superior Frontal Gyrus",
     "targetName": "Anterior insula (left)"
   },
@@ -27,14 +19,6 @@
     "lateralEnd": [
       1428,
       430
-    ],
-    "medialStart": [
-      1624,
-      864
-    ],
-    "medialEnd": [
-      1433,
-      1042
     ],
     "preferredEntry": "Superior frontal gyrus",
     "targetName": "Anterior Insula (right)"
@@ -48,14 +32,6 @@
       1546,
       450
     ],
-    "medialStart": [
-      1695,
-      1002
-    ],
-    "medialEnd": [
-      1517,
-      1131
-    ],
     "preferredEntry": "Superior frontal gyrus",
     "targetName": "Orbitofrontal (right)"
   },
@@ -67,14 +43,6 @@
     "lateralEnd": [
       228,
       470
-    ],
-    "medialStart": [
-      102,
-      923
-    ],
-    "medialEnd": [
-      222,
-      1147
     ],
     "preferredEntry": "Superior frontal gyrus",
     "targetName": "Orbitofrontal (left)"
@@ -88,14 +56,6 @@
       393,
       403
     ],
-    "medialStart": [
-      570,
-      749
-    ],
-    "medialEnd": [
-      439,
-      1042
-    ],
     "preferredEntry": "Superior parietal lobule",
     "targetName": "Posterior insula (left)"
   },
@@ -108,16 +68,7 @@
       1369,
       405
     ],
-    "medialStart": [
-      1215,
-      758
-    ],
-    "medialEnd": [
-      1326,
-      1022
-    ],
     "preferredEntry": "Superior parietal lobule",
     "targetName": "Posterior insula (right)"
   }
-
 }

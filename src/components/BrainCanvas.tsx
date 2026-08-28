@@ -7,7 +7,7 @@ import { centroid, clampTranslation } from "../lib/geometry";
 
 type DragTarget =
   | { kind: "electrode"; electrodeId: string; field: "entry" | "target" }
-  | { kind: "electrode"; electrodeId: string; field: "lateralStart" | "lateralEnd" | "medialStart" | "medialEnd" };
+  | { kind: "electrode"; electrodeId: string; field: "lateralStart" | "lateralEnd" };
 
 type SketchDrag = { sketchId: string; startX: number; startY: number; originalPoints: Point[] };
 
@@ -317,8 +317,8 @@ function ElectrodeMarks({
   const opacity = isHighlighted ? 1 : 0.85;
   const strokeW = isSelected ? 3 : isHighlighted ? 2.2 : 1.5;
   const color = isHighlighted ? darkenHex(electrode.color, 0.22) : electrode.color;
-  const dotR = isHighlighted ? 13 : 9;
-  const xR = isHighlighted ? 12 : 8; // Adjust these values to change the planner X-marker size.
+  const dotR = isHighlighted ? 13 : 10;
+  const xR = isHighlighted ? 13 : 10; // Adjust these values to change the planner X-marker size.
 
   if (electrode.type === "lateral-medial") {
     return (
@@ -357,33 +357,15 @@ function ElectrodeMarks({
         r={dotR}
         onPointerDown={(e) => onStartDrag(e, { kind: "electrode", electrodeId: electrode.id, field: "lateralStart" })}
       />
-      <EntryDot
+      <TargetX
         point={electrode.lateralEnd}
         color={color}
         strokeW={strokeW}
-        r={dotR}
+        r={xR}
         onPointerDown={(e) => onStartDrag(e, { kind: "electrode", electrodeId: electrode.id, field: "lateralEnd" })}
       />
-      {/* Medial view: no trajectory line; superior point = dot, inferior point = X. */}
-      <EntryDot
-        point={electrode.medialStart}
-        color={color}
-        strokeW={strokeW}
-        r={dotR}
-        onPointerDown={(e) => onStartDrag(e, { kind: "electrode", electrodeId: electrode.id, field: "medialStart" })}
-      />
-      <TargetX
-        point={electrode.medialEnd}
-        color={color}
-        strokeW={strokeW}
-        r={xR}
-        onPointerDown={(e) => onStartDrag(e, { kind: "electrode", electrodeId: electrode.id, field: "medialEnd" })}
-      />
       {showNames && (
-        <>
-          <NameLabel point={electrode.lateralStart} text={electrode.name} color={color} dy={-(dotR + 10)} />
-          <NameLabel point={electrode.medialStart} text={electrode.name} color={color} dy={-(xR + 10)} />
-        </>
+        <NameLabel point={electrode.lateralStart} text={electrode.name} color={color} dy={-(dotR + 10)} />
       )}
     </g>
   );

@@ -3,20 +3,16 @@ import { useStore } from "../store/useStore";
 import type { Point, SIAnchor } from "../types";
 import { REF_H, REF_W } from "../lib/constants";
 
-type PickMode = "lateralStart" | "lateralEnd" | "medialStart" | "medialEnd";
+type PickMode = "lateralStart" | "lateralEnd";
 
 const PICK_LABELS: Record<PickMode, string> = {
-  lateralStart: "Lateral Start",
-  lateralEnd: "Lateral End",
-  medialStart: "Medial Start",
-  medialEnd: "Medial End",
+  lateralStart: "Superior",
+  lateralEnd: "Inferior",
 };
 
 const emptyDraft: SIAnchor = {
   lateralStart: [REF_W * 0.2, REF_H * 0.1],
   lateralEnd: [REF_W * 0.2, REF_H * 0.25],
-  medialStart: [REF_W * 0.18, REF_H * 0.65],
-  medialEnd: [REF_W * 0.18, REF_H * 0.82],
   preferredEntry: "",
   targetName: "",
 };
@@ -81,7 +77,7 @@ export default function SuperiorInferiorBuilder() {
     setDraft(emptyDraft);
     setIsExisting(false);
     setPickMode("lateralStart");
-    setStatus(`No existing entry for ${q}. Click the brain to place its 4 points, then save.`);
+    setStatus(`No existing entry for ${q}. Click the brain to place its 2 lateral points, then save.`);
   };
 
   const startNew = () => {
@@ -89,7 +85,7 @@ export default function SuperiorInferiorBuilder() {
     setDraft(emptyDraft);
     setIsExisting(false);
     setPickMode("lateralStart");
-    setStatus("New builder entry. Enter a name, click the brain to place its 4 points, then save.");
+    setStatus("New builder entry. Enter a name, click the brain to place its 2 lateral points, then save.");
   };
 
   const setPoint = (mode: PickMode, point: Point) => {
@@ -104,11 +100,11 @@ export default function SuperiorInferiorBuilder() {
       x: Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width)),
       y: Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height)),
     });
-    // Step through the 4 points in order so a full trajectory can be placed with 4 clicks in a row.
-    const order: PickMode[] = ["lateralStart", "lateralEnd", "medialStart", "medialEnd"];
+    // Step through the 2 lateral trajectory points in order.
+    const order: PickMode[] = ["lateralStart", "lateralEnd"];
     const next = order[(order.indexOf(pickMode) + 1) % order.length];
     setPickMode(next);
-    setStatus(`${PICK_LABELS[pickMode]} updated. Now click to set ${PICK_LABELS[next]} (or pick a point above to edit any of the 4).`);
+    setStatus(`${PICK_LABELS[pickMode]} updated. Now click to set ${PICK_LABELS[next]} (or pick a point above to edit either point).`);
   };
 
   const save = () => {
@@ -156,10 +152,9 @@ export default function SuperiorInferiorBuilder() {
           <strong style={{ fontSize: 14 }}>Superior–Inferior Trajectory Builder</strong>
           <p style={{ margin: "5px 0 0", fontSize: 12.5, color: "var(--muted)", lineHeight: 1.45 }}>
             Click-to-build tool for superior-to-inferior electrodes (e.g. <span className="mono">LAI</span>,{" "}
-            <span className="mono">RPF</span>). Place the lateral start/end (filled circles) and medial
-            start/end (X marks) points, optionally add a preferred entry/target label, then export the
-            queue as JSON to merge into <span className="mono">public/superior-inferior-regions.json</span> by
-            hand.
+            <span className="mono">RPF</span>). Place the lateral superior/inferior points (superior = dot,
+            inferior = X), optionally add a preferred entry/target label, then export the queue as JSON to
+            merge into <span className="mono">public/superior-inferior-regions.json</span> by hand.
           </p>
         </div>
         <div style={{ display: "flex", gap: 7 }}>
@@ -244,10 +239,8 @@ export default function SuperiorInferiorBuilder() {
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <CoordinateField label="Lateral Start X / Y" point={draft.lateralStart} onChange={(p) => setDraft({ ...draft, lateralStart: p })} />
-            <CoordinateField label="Lateral End X / Y" point={draft.lateralEnd} onChange={(p) => setDraft({ ...draft, lateralEnd: p })} />
-            <CoordinateField label="Medial Start X / Y" point={draft.medialStart} onChange={(p) => setDraft({ ...draft, medialStart: p })} />
-            <CoordinateField label="Medial End X / Y" point={draft.medialEnd} onChange={(p) => setDraft({ ...draft, medialEnd: p })} />
+            <CoordinateField label="Superior X / Y" point={draft.lateralStart} onChange={(p) => setDraft({ ...draft, lateralStart: p })} />
+            <CoordinateField label="Inferior X / Y" point={draft.lateralEnd} onChange={(p) => setDraft({ ...draft, lateralEnd: p })} />
           </div>
 
           <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
@@ -272,27 +265,21 @@ export default function SuperiorInferiorBuilder() {
             <svg viewBox={`0 0 ${REF_W} ${REF_H}`} width="100%" style={{ display: "block", width: "100%", height: "auto", minHeight: 350, cursor: "crosshair" }} onClick={handleCanvasClick}>
               <image href={imageHref} x={0} y={0} width={REF_W} height={REF_H} />
 
-              {/* Lateral trajectory: filled circles + connecting line */}
+              {/* Lateral trajectory: superior = dot, inferior = X. */}
               <line
                 x1={draft.lateralStart[0]} y1={draft.lateralStart[1]}
                 x2={draft.lateralEnd[0]} y2={draft.lateralEnd[1]}
                 stroke="var(--accent)" strokeWidth={4}
               />
               <circle cx={draft.lateralStart[0]} cy={draft.lateralStart[1]} r={11} fill="var(--accent)" stroke="#fff" strokeWidth={3} />
-              <circle cx={draft.lateralEnd[0]} cy={draft.lateralEnd[1]} r={11} fill="var(--accent)" stroke="#fff" strokeWidth={3} />
-              <text x={draft.lateralStart[0] + 15} y={draft.lateralStart[1] - 10} fontSize={16} fontWeight={700} fill="var(--accent)" stroke="#fff" strokeWidth={4} paintOrder="stroke">LAT START</text>
-              <text x={draft.lateralEnd[0] + 15} y={draft.lateralEnd[1] - 10} fontSize={16} fontWeight={700} fill="var(--accent)" stroke="#fff" strokeWidth={4} paintOrder="stroke">LAT END</text>
-
-              {/* Medial view: no trajectory; superior point = dot, inferior point = X. */}
-              <circle cx={draft.medialStart[0]} cy={draft.medialStart[1]} r={11} fill="var(--danger)" stroke="#fff" strokeWidth={3} />
-              <XMark x={draft.medialEnd[0]} y={draft.medialEnd[1]} />
-              <text x={draft.medialStart[0] + 15} y={draft.medialStart[1] - 10} fontSize={16} fontWeight={700} fill="var(--danger)" stroke="#fff" strokeWidth={4} paintOrder="stroke">MED START</text>
-              <text x={draft.medialEnd[0] + 15} y={draft.medialEnd[1] - 10} fontSize={16} fontWeight={700} fill="var(--danger)" stroke="#fff" strokeWidth={4} paintOrder="stroke">MED END</text>
+              <XMark x={draft.lateralEnd[0]} y={draft.lateralEnd[1]} />
+              <text x={draft.lateralStart[0] + 15} y={draft.lateralStart[1] - 10} fontSize={16} fontWeight={700} fill="var(--accent)" stroke="#fff" strokeWidth={4} paintOrder="stroke">SUPERIOR</text>
+              <text x={draft.lateralEnd[0] + 15} y={draft.lateralEnd[1] - 10} fontSize={16} fontWeight={700} fill="var(--accent)" stroke="#fff" strokeWidth={4} paintOrder="stroke">INFERIOR</text>
             </svg>
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, fontSize: 11, color: "var(--muted)" }}>
             <span>Reference: {REF_W} × {REF_H} px</span>
-            <span>Clicks advance through the 4 points in order -- pick a button above to jump to one</span>
+            <span>Clicks advance through the 2 lateral points in order -- pick a button above to jump to one</span>
           </div>
         </div>
 
@@ -309,8 +296,7 @@ export default function SuperiorInferiorBuilder() {
                         {queued[k].targetName || "—"} · entry: {queued[k].preferredEntry || "—"} ·{" "}
                       </>
                     )}
-                    lat ({queued[k].lateralStart[0]}, {queued[k].lateralStart[1]}) → ({queued[k].lateralEnd[0]}, {queued[k].lateralEnd[1]}) ·
-                    {" "}med ({queued[k].medialStart[0]}, {queued[k].medialStart[1]}) → ({queued[k].medialEnd[0]}, {queued[k].medialEnd[1]})
+                    superior ({queued[k].lateralStart[0]}, {queued[k].lateralStart[1]}) → inferior ({queued[k].lateralEnd[0]}, {queued[k].lateralEnd[1]})
                   </span>
                   <button className="btn btn-ghost btn-sm" onClick={() => loadName(k)}>Edit</button>
                   <button className="btn btn-ghost btn-sm btn-danger" onClick={() => removeQueued(k)}>Remove</button>

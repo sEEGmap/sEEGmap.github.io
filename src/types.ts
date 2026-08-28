@@ -28,8 +28,6 @@ export interface SuperiorInferiorElectrode extends BaseElectrode {
   type: "superior-inferior";
   lateralStart: Point;
   lateralEnd: Point;
-  medialStart: Point;
-  medialEnd: Point;
 }
 
 export type Electrode = LateralMedialElectrode | SuperiorInferiorElectrode;
@@ -85,8 +83,6 @@ export interface BrainRegionsConfig {
 export interface SIAnchor {
   lateralStart: [number, number];
   lateralEnd: [number, number];
-  medialStart: [number, number];
-  medialEnd: [number, number];
   preferredEntry?: string;
   targetName?: string;
 }
