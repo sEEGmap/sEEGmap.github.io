@@ -21,7 +21,7 @@ const DIAGRAM_TOP = 1.3;
 const DIAGRAM_MAX_W = 12.3;
 const DIAGRAM_MAX_H = 6.0;
 const DOT_R = 0.055; // inches
-const X_R = 0.075;
+const X_R = 0.075; // Change this value to adjust the PowerPoint X-marker size (in inches).
 
 type SlideRect = { x: number; y: number; w: number; h: number };
 
@@ -173,12 +173,13 @@ export async function exportWorkspacePptx({
         addTrajectoryLine(slide, ls, le, e.color);
         addDot(slide, ls, e.color);
         addDot(slide, le, e.color);
-        addTrajectoryLine(slide, ms, me, e.color);
-        addTargetX(slide, ms, e.color);
+        // Medial view: no trajectory line; superior point = dot, inferior point = X.
+        addDot(slide, ms, e.color);
         addTargetX(slide, me, e.color);
         if (showNames) {
           addNameLabel(slide, ls, e.name, e.color, false);
           addNameLabel(slide, ms, e.name, e.color, false);
+          addNameLabel(slide, me, e.name, e.color, false);
         }
       }
     });
@@ -220,16 +221,61 @@ export async function exportWorkspacePptx({
     return half === "L" ? c.x < 0.5 : c.x >= 0.5;
   }
 
-  // Slide 1: both hemispheres -- full diagram, native editable markers
-  addDiagramSlide(
-    "Both Hemispheres",
-    bgFull,
-    sketchOverlayFull,
-    fullSize.width / fullSize.height,
-    electrodes,
-    sketches,
-    (p) => p
-  );
+  // Slide 1: both hemispheres + compact electrode summary on the left.
+  const overviewSlide = addTitleSlide("Both Hemispheres");
+  const overviewRect = { x: 4.65, y: 1.3, w: 8.25, h: 5.85 };
+  overviewSlide.addImage({
+    data: bgFull,
+    x: overviewRect.x,
+    y: overviewRect.y,
+    w: overviewRect.w,
+    h: overviewRect.h,
+  });
+  if (sketchOverlayFull) {
+    overviewSlide.addImage({
+      data: sketchOverlayFull,
+      x: overviewRect.x,
+      y: overviewRect.y,
+      w: overviewRect.w,
+      h: overviewRect.h,
+    });
+  }
+  const overviewToSlide = (p: Point) => ({
+    x: overviewRect.x + p.x * overviewRect.w,
+    y: overviewRect.y + p.y * overviewRect.h,
+  });
+  drawSketchLabels(overviewSlide, sketches, overviewToSlide);
+  drawElectrodes(overviewSlide, electrodes, overviewToSlide);
+
+  const sorted = [...electrodes].sort((a, b) => a.order - b.order);
+  const summaryRows: PptxGenJS.TableRow[] = [
+    [
+      { text: "#", options: { bold: true, fill: { color: "DDE7EA" } } },
+      { text: "Name", options: { bold: true, fill: { color: "DDE7EA" } } },
+      { text: "Entry", options: { bold: true, fill: { color: "DDE7EA" } } },
+      { text: "Target", options: { bold: true, fill: { color: "DDE7EA" } } },
+    ],
+    ...sorted.map((e, i) => {
+      const fill = i % 2 === 0 ? "F7F9FA" : "EAF0F2";
+      return [
+        { text: String(i + 1), options: { fill: { color: fill } } },
+        { text: e.name, options: { fill: { color: fill } } },
+        { text: e.entryName || "--", options: { fill: { color: fill } } },
+        { text: e.targetName || "--", options: { fill: { color: fill } } },
+      ];
+    }),
+  ];
+  overviewSlide.addTable(summaryRows, {
+    x: 0.45,
+    y: 1.3,
+    w: 3.85,
+    fontSize: 7.5,
+    fontFace: "Arial",
+    border: { type: "solid", color: "D5DDE1", pt: 0.6 },
+    margin: 0.035,
+    colW: [0.34, 0.68, 1.35, 1.48],
+    autoPage: false,
+  });
 
   // Slide 2: left hemisphere only
   addDiagramSlide(
@@ -252,35 +298,6 @@ export async function exportWorkspacePptx({
     sketches.filter((sk) => sketchInHalf(sk, "R")),
     (p) => ({ x: Math.min(1, Math.max(0, (p.x - 0.5) * 2)), y: p.y })
   );
-
-  // Slide 4: electrode summary table
-  const summarySlide = addTitleSlide("Electrode Summary");
-  const sorted = [...electrodes].sort((a, b) => a.order - b.order);
-  const rows: PptxGenJS.TableRow[] = [
-    [
-      { text: "#", options: { bold: true } },
-      { text: "Name", options: { bold: true } },
-      { text: "Type", options: { bold: true } },
-      { text: "Entry", options: { bold: true } },
-      { text: "Target", options: { bold: true } },
-    ],
-    ...sorted.map((e, i) => [
-      { text: String(i + 1) },
-      { text: e.name },
-      { text: e.type === "lateral-medial" ? "Lateral-Medial" : "Superior-Inferior" },
-      { text: e.entryName || "--" },
-      { text: e.targetName || "--" },
-    ]),
-  ];
-  summarySlide.addTable(rows, {
-    x: 0.5,
-    y: 1.3,
-    w: 12.3,
-    fontSize: 11,
-    fontFace: "Arial",
-    border: { type: "solid", color: "E2E7EB", pt: 0.75 },
-    autoPage: true,
-  });
 
   // Slide 5: notes
   const notesSlide = addTitleSlide("Notes");

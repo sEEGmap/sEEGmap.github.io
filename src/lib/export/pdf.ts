@@ -42,10 +42,9 @@ export async function exportWorkspacePdf({
   const cols = [
     { key: "order", label: "#", w: 26 },
     { key: "name", label: "Name", w: 70 },
-    { key: "type", label: "Type", w: 100 },
-    { key: "entry", label: "Entry", w: 190 },
-    { key: "target", label: "Target", w: 190 },
-    { key: "notes", label: "Notes", w: pageW - margin * 2 - (26 + 70 + 100 + 190 + 190) },
+    { key: "entry", label: "Entry", w: 220 },
+    { key: "target", label: "Target", w: 220 },
+    { key: "notes", label: "Notes", w: pageW - margin * 2 - (26 + 70 + 220 + 220) },
   ];
   let y = margin + 56;
   doc.setFontSize(9);
@@ -69,7 +68,6 @@ export async function exportWorkspacePdf({
     const row = [
       String(i + 1),
       e.name,
-      e.type === "lateral-medial" ? "Lateral-Medial" : "Superior-Inferior",
       e.entryName || "--",
       e.targetName || "--",
       truncate(e.notes || "--", 60),

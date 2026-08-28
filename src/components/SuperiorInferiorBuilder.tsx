@@ -283,13 +283,8 @@ export default function SuperiorInferiorBuilder() {
               <text x={draft.lateralStart[0] + 15} y={draft.lateralStart[1] - 10} fontSize={16} fontWeight={700} fill="var(--accent)" stroke="#fff" strokeWidth={4} paintOrder="stroke">LAT START</text>
               <text x={draft.lateralEnd[0] + 15} y={draft.lateralEnd[1] - 10} fontSize={16} fontWeight={700} fill="var(--accent)" stroke="#fff" strokeWidth={4} paintOrder="stroke">LAT END</text>
 
-              {/* Medial trajectory: X marks + connecting line */}
-              <line
-                x1={draft.medialStart[0]} y1={draft.medialStart[1]}
-                x2={draft.medialEnd[0]} y2={draft.medialEnd[1]}
-                stroke="var(--danger)" strokeWidth={4}
-              />
-              <XMark x={draft.medialStart[0]} y={draft.medialStart[1]} />
+              {/* Medial view: no trajectory; superior point = dot, inferior point = X. */}
+              <circle cx={draft.medialStart[0]} cy={draft.medialStart[1]} r={11} fill="var(--danger)" stroke="#fff" strokeWidth={3} />
               <XMark x={draft.medialEnd[0]} y={draft.medialEnd[1]} />
               <text x={draft.medialStart[0] + 15} y={draft.medialStart[1] - 10} fontSize={16} fontWeight={700} fill="var(--danger)" stroke="#fff" strokeWidth={4} paintOrder="stroke">MED START</text>
               <text x={draft.medialEnd[0] + 15} y={draft.medialEnd[1] - 10} fontSize={16} fontWeight={700} fill="var(--danger)" stroke="#fff" strokeWidth={4} paintOrder="stroke">MED END</text>
@@ -330,6 +325,7 @@ export default function SuperiorInferiorBuilder() {
 }
 
 function XMark({ x, y }: { x: number; y: number }) {
+  // Change 11 below to adjust the Click-to-Build X-marker size.
   return (
     <>
       <line x1={x - 11} y1={y - 11} x2={x + 11} y2={y + 11} stroke="var(--danger)" strokeWidth={5} />
