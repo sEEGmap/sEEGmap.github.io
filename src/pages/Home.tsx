@@ -111,7 +111,8 @@ export default function Home() {
             lineHeight: 1.45,
           }}
         >
-          <strong>Planning aid only.</strong> Not intended to replace physician judgment.
+          <strong>Planning aid only.</strong> Not intended to replace physician assessment.
+          Refer to https://github.com/sEEGmap/sEEGmap.github.io for guidance.
         </div>
 
         {sessionFound && (
