@@ -7,7 +7,7 @@ https://seegmap.github.io/
 
 **Planning aid only. Not intended to replace physician assessment.**
 
-Created by [Serdar Akkol, MD PhD](sakkol.github.io){:target="_blank"} at Comprehensive Epilepsy Center of Duke University. Please contact for any questions or feedback!
+Created by [Serdar Akkol, MD PhD](sakkol.github.io) at Comprehensive Epilepsy Center of Duke University. Please contact for any questions or feedback!
 
 Build using Anthropic Claude Sonnet 5 and ChatGPT - beware of errors.
 
