@@ -95,7 +95,16 @@ export default function Home() {
           sEEGmap
         </h1>
         <p style={{ marginTop: 8, marginBottom: 0, color: "var(--muted)", fontSize: 15.5 }}>
-          Interactive 2D stereoelectroencephalography planning
+          <span>Interactive 2D stereoelectroencephalography planning</span>
+          <br />
+          <a
+            href="https://github.com/sEEGmap/sEEGmap.github.io"
+            target="_blank"
+            rel="noreferrer"
+            style={{ color: "inherit", textDecoration: "underline" }}
+          >
+            Refer to https://github.com/sEEGmap/sEEGmap.github.io for guidance.
+          </a>
         </p>
 
         <div
@@ -111,8 +120,9 @@ export default function Home() {
             lineHeight: 1.45,
           }}
         >
-          <strong>Planning aid only.</strong> Not intended to replace physician assessment.
-          Refer to https://github.com/sEEGmap/sEEGmap.github.io for guidance.
+          <strong>
+            For sEEG planning only. Not intended to replace physician assessment or approved for clinical use.
+          </strong>
         </div>
 
         {sessionFound && (
