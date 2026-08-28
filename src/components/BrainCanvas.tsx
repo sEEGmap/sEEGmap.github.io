@@ -317,8 +317,8 @@ function ElectrodeMarks({
   const opacity = isHighlighted ? 1 : 0.85;
   const strokeW = isSelected ? 3 : isHighlighted ? 2.2 : 1.5;
   const color = isHighlighted ? darkenHex(electrode.color, 0.22) : electrode.color;
-  const dotR = isHighlighted ? 13 : 10;
-  const xR = isHighlighted ? 13 : 10; // Adjust these values to change the planner X-marker size.
+  const dotR = isHighlighted ? 13 : 9;
+  const xR = isHighlighted ? 12 : 8; // Adjust these values to change the planner X-marker size.
 
   if (electrode.type === "lateral-medial") {
     return (
