@@ -1,27 +1,67 @@
-ElectrodeName,TargetName,PreferredEntry,TargetX,TargetY,EntryX,EntryY,Category,Comments
-LTAM,Amygdala (Left),L Anterior MTG,384,1128,359,481,Mesial Temporal,Amygdala target.
-RTAM,Amygdala (Right),R Anterior MTG,1377,1120,1384,470,Mesial Temporal,Amygdala target.
-LTMM,Hippocampus Body (Left),L Mid MTG,393,1047,359,294,Mesial Temporal,Mid hippocampal body target.
-RTMM,Hippocampus Body (Right),R Mid MTG,1298,1047,1264,294,Mesial Temporal,Mid hippocampal body target.
-LTPM,Hippocampus Tail (Left),L Posterior MTG,469,1035,426,282,Mesial Temporal,Posterior hippocampal target.
-RTPM,Hippocampus Tail (Right),R Posterior MTG,1375,1035,1332,282,Mesial Temporal,Posterior hippocampal target.
-LTMI,Parahippocampal Gyrus (Left),L Mid MTG,359,1083,325,318,Mesial Temporal,"Mesial temporal, inferior to hippocampus."
-RTMI,Parahippocampal Gyrus (Right),R Mid MTG,1264,1083,1230,318,Mesial Temporal,"Mesial temporal, inferior to hippocampus."
-LTAS,Temporal Pole (Left),L Anterior STG,123,348,89,318,Temporal,Anterior temporal tip target.
-RTAS,Temporal Pole (Right),R Anterior STG,1025,349,990,318,Temporal,Anterior temporal tip target.
-LTPI,Fusiform Gyrus (Left),L Inferior Temporal,376,1143,342,348,Temporal,Basal/inferior temporal target.
-RTPI,Fusiform Gyrus (Right),R Inferior Temporal,1281,1143,1247,349,Temporal,Basal/inferior temporal target.
-LIAM,Anterior Insula (Left),L Frontal Operculum,258,186,207,149,Insula,Approached via frontal operculum.
-RIAM,Anterior Insula (Right),R Frontal Operculum,1162,186,1110,150,Insula,Approached via frontal operculum.
-LIPM,Posterior Insula (Left),L Parietal Operculum,359,198,410,161,Insula,Approached via parietal operculum.
-RIPM,Posterior Insula (Right),R Parietal Operculum,1264,198,1315,162,Insula,Approached via parietal operculum.
-LFAI,Orbitofrontal Cortex (Left),L Superior Frontal Gyrus,140,915,123,125,Frontal,Orbital surface target.
-RFAI,Orbitofrontal Cortex (Right),R Superior Frontal Gyrus,1042,915,1025,126,Frontal,Orbital surface target.
-LCAS,Anterior Cingulate (Left),L Superior Frontal Gyrus,275,855,174,759,Cingulate,Anterior cingulate gyrus target.
-RCAS,Anterior Cingulate (Right),R Superior Frontal Gyrus,1179,855,1076,759,Cingulate,Anterior cingulate gyrus target.
-LCPS,Posterior Cingulate (Left),L Superior Parietal Lobule,469,855,528,759,Cingulate,Posterior cingulate/precuneus border.
-RCPS,Posterior Cingulate (Right),R Superior Parietal Lobule,1375,855,1435,759,Cingulate,Posterior cingulate/precuneus border.
-LPPS,Precuneus (Left),L Superior Parietal Lobule,528,843,561,747,Parietal,Medial parietal target.
-RPPS,Precuneus (Right),R Superior Parietal Lobule,1435,843,1469,747,Parietal,Medial parietal target.
-LFMS,Supplementary Motor Area (Left),L Superior Frontal Gyrus,384,783,342,723,Frontal,Mesial premotor target.
-RFMS,Supplementary Motor Area (Right),R Superior Frontal Gyrus,1290,783,1247,723,Frontal,Mesial premotor target.
+ElectrodeName,TargetName,PreferredEntry,TargetX,TargetY,EntryX,EntryY,Category,Comments,,,,
+LTOJ,Temporo-occipital junction,Posterior middle temporal gyrus,661,1013,652,352,Temporal-Occipital TOJ,,,,,
+RTOJ,Temporo-occipital junction,Posterior middle temporal gyrus,1091,1013,1093,352,Temporal-Occipital TOJ,,,,,
+LTAM,Amygdala,Anterior MTG,384,1128,359,481,Temporal,,,,,
+RTAM,Amygdala,Anterior MTG,1377,1120,1384,470,Temporal,,,,,
+LTMI,Entorhinal cortex​,Inferior temporal gyrus,519,1126,515,479,Temporal,,,,,
+RTMI,Entorhinal cortex​,Inferior temporal gyrus,1255,1126,1238,461,Temporal,,,,,
+LTPI,Fusiform Gyrus (Left),L Inferior Temporal,599,1095,610,441,Temporal,,,,,
+RTPI,Fusiform Gyrus (Right),Inferior Temporal Gyrus,1127,1082,1162,432,Temporal,,,,,
+LTMM,Hippocampus Body (Left),L Mid MTG,444,1102,428,450,Temporal,,,,,
+RTMM,Hippocampus Body (Right),R Mid MTG,1322,1108,1333,443,Temporal,,,,,
+LTPM,Hippocampus Tail (Left),L Posterior MTG,512,1071,512,416,Temporal,,,,,
+RTPM,Hippocampus Tail (Right),R Posterior MTG,1258,1073,1249,419,Temporal,,,,,
+LTAI,Parahippocampal gyrus​,Inferior temporal gyrus,413,1188,419,532,Temporal,,,,,
+RTAI,Parahippocampal gyrus​,Inferior temporal gyrus,1362,1195,1366,543,Temporal,,,,,
+LTMS,Posterior insula,Mid superior temporal gyrus,426,1033,408,372,Temporal,,,,,
+RTMS,Posterior insula,Mid superior temporal gyrus,1353,1040,1355,381,Temporal,,,,,
+LTPS,Pulvinar,Superior temporal gyrus,466,1011,581,297,Temporal,,,,,
+RTPS,Pulvinar,Superior temporal gyrus,1318,1013,1189,299,Temporal,,,,,
+LTP,Temporal pole,Anterior mid temporal gyrus,313,1208,326,518,Temporal,,,,,
+RTP,Temporal pole,Anterior middle temporal gyrus,1453,1195,1444,523,Temporal,,,,,
+LPPS,Mid-Precuneus,Superior Parietal Lobule,614,864,621,152,Parietal,,,,,
+RPPS,Mid-precuneus,Superior Parietal Lobule,1158,878,1187,144,Parietal,,,,,
+LPAI,Posterior insula,Parietal operculum,441,973,448,314,Parietal,,,,,
+RPAI,Posterior insula,Parietal operculum,1315,978,1313,310,Parietal,,,,,
+LPMS,Precuneus,Postcentral gyrus,555,833,550,135,Parietal,,,,,
+RPMS,Precuneus,Postcentral gyrus,1215,840,1218,141,Parietal,,,,,
+RPPM,Precuneus,Angular gyrus​,1102,935,1107,203,Parietal,,,,,
+LPPM,Precuneus​,Angular gyrus​,659,911,659,206,Parietal,,,,,
+LOAM,Calcarine sulcus,Superior occipital gyrus,674,993,645,343,Occipital,,,,,
+ROAM,Calcarine sulcus,Superior occipital gyrus,1096,986,1096,317,Occipital,,,,,
+LOAI,Cuneus,Lingual gyrus,670,1077,668,416,Occipital,,,,,
+LOAS,Cuneus,Area MT/V5,663,938,661,279,Occipital,,,,,
+LOMM,Cuneus,Middle occipital gyrus,703,1015,712,339,Occipital,,,,,
+LOMS,Cuneus,Superior occipital gyrus,721,927,694,215,Occipital,,,,,
+ROAI,Cuneus,Lingual gyrus,1069,1082,1067,412,Occipital,,,,,
+ROAS,Cuneus,Area MT/V5,1100,947,1098,272,Occipital,,,,,
+ROMM,Cuneus,Middle occipital gyrus,1049,1009,1038,325,Occipital,,,,,remove TAS
+ROMS,Cuneus,Superior occipital gyrus,1036,920,1065,219,Occipital,,,,,
+LOMI,Inferior lingual gyrus,Inferior occipital gyrus,783,1035,765,381,Occipital,,,,,
+ROPI,Inferior lingual gyrus,Inferior occipital gyrus,985,1026,991,365,Occipital,,,,,
+LOPM,Medial occipital,Middle occipital gyrus,803,960,792,303,Occipital,,,,,
+LOPS,Medial occipital,Superior occipital gyrus,747,864,767,215,Occipital,,,,,
+ROPM,Medial occipital,Middle occipital gyrus,967,973,967,312,Occipital,,,,,
+ROPS,Medial occipital,Superior occipital gyrus,1020,867,1000,215,Occipital,,,,,
+LTAS,Anterior insula,Superior temporal gyrus,335,1093,317,425,Insula,,,,,
+RTAS,Anterior insula,Superior temporal gyrus,1435,1084,1442,419,Insula,,,,,
+LFOA,Orbitofrontal Cortex,Inferior Frontal Gyrus,202,1144,182,465,Frontal,,,,,
+RFOA,Orbitofrontal Cortex,Inferior Frontal Gyrus,1564,1144,1573,472,Frontal,,,,,
+LFPS,Paracentral Lobule,Precentral gyrus,395,789,384,93,Frontal,,,,,
+RFPS,Paracentral Lobule,Precentral gyrus,1371,787,1380,115,Frontal,,,,,
+LFAS,Pre-frontal/pre-SMA,Superior frontal gyrus,131,900,140,254,Frontal,,,,,
+RFAS,Pre-frontal/Pre-SMA,Superior frontal gyrus,1624,938,1626,292,Frontal,,,,,
+LFMS,Supplementary Motor Area,Superior Frontal Gyrus,255,816,244,172,Frontal,,,,,
+RFMS,Supplementary Motor Area,Superior Frontal Gyrus,1453,789,1479,161,Frontal,,,,,
+LFAM,Anterior cingulate​,Inferior Frontal gyrus,182,1017,180,361,Cingulate,,,,,
+LFMI,Anterior cingulate​,Inferior frontal gyrus,231,1088,237,423,Cingulate,,,,,
+RFAM,Anterior cingulate​,Inferior frontal gyrus,1584,1006,1553,345,Cingulate,,,,,
+RFMI,Anterior cingulate​,Inferior frontal gyrus,1573,1082,1548,423,Cingulate,,,,,
+LFMM,Anterior mid-cingulate​ gyrus​,Middle frontal gyrus​,271,935,260,325,Cingulate,,,,,
+RFMM,Anterior mid-cingulate​ gyrus​,Middle frontal gyrus​,1502,931,1493,317,Cingulate,,,,,
+LFPM,Mid cingulate gyrus​,Precentral gyrus,346,900,344,266,Cingulate,,,,,
+LPAM,Mid cingulate gyrus​,Postcentral gyrus,435,896,415,228,Cingulate,,,,,
+RFPM,Mid cingulate gyrus​,Precentral gyrus,1424,893,1415,248,Cingulate,,,,,
+RPAM,Mid cingulate gyrus​,Postcentral gyrus,1353,896,1355,226,Cingulate,,,,,
+LPMI,Posterior cingulate gyrus​,Inferior parietal lobule​,572,949,537,263,Cingulate,,,,,
+RPMI,Posterior cingulate gyrus​,Inferior parietal lobule​,1200,953,1213,250,Cingulate,,,,,
