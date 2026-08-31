@@ -342,7 +342,9 @@ function ElectrodeMarks({
         {showNames && (
           <>
             <NameLabel point={electrode.entry} text={electrode.name} color={color} dy={dotR + 16} />
-            <NameLabel point={electrode.target} text={electrode.name} color={color} dy={xR + 16} />
+            {electrode.showTarget !== false && (
+              <NameLabel point={electrode.target} text={electrode.name} color={color} dy={xR + 16} />
+            )}
           </>
         )}
       </g>
