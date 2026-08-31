@@ -54,7 +54,7 @@ export default function AddElectrodeDialog({ onClose }: { onClose: () => void })
             By Name
           </TabButton>
           <TabButton active={tab === "manual"} onClick={() => setTab("manual")}>
-            Manual
+            Create
           </TabButton>
           <TabButton active={tab === "anatomy"} onClick={() => setTab("anatomy")}>
             By Target
@@ -91,10 +91,11 @@ function TabButton({ active, onClick, children }: { active: boolean; onClick: ()
 function ByNameTab({ onDone }: { onDone: () => void }) {
   const addByName = useStore((s) => s.addByName);
   const [name, setName] = useState("");
+  const [mode, setMode] = useState<"lateral-medial" | "superior-inferior">("lateral-medial");
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
   const submit = () => {
-    const res = addByName(name);
+    const res = addByName(name, mode);
     setMessage({ ok: res.ok, text: res.message });
     if (res.ok) {
       setName("");
@@ -105,10 +106,9 @@ function ByNameTab({ onDone }: { onDone: () => void }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <p style={{ margin: 0, fontSize: 13, color: "var(--muted)", lineHeight: 1.5 }}>
-        If the name matches the anatomical library (e.g. <span className="mono">LTAI</span>), entry/target are
-        placed precisely and labeled automatically. Otherwise a lateral-medial code (e.g.{" "}
-        <span className="mono">LTMI</span>) or superior-inferior code (e.g. <span className="mono">LAI</span>)
-        is placed from the region configuration -- verify placement afterward.
+        Enter an electrode name and choose the placement orientation. If the name matches the anatomical
+        library, the curated library trajectory is always used. If there is no library match, Orthogonal is
+        used by default.
       </p>
       <div className="field">
         <label>Electrode name</label>
@@ -118,8 +118,29 @@ function ByNameTab({ onDone }: { onDone: () => void }) {
           value={name}
           onChange={(e) => setName(e.target.value.toUpperCase())}
           onKeyDown={(e) => e.key === "Enter" && submit()}
-          placeholder="LTMI"
+          placeholder={mode === "lateral-medial" ? "LTMI" : "LAI"}
         />
+      </div>
+      <div className="field">
+        <label>Orientation</label>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            type="button"
+            className={`btn btn-sm ${mode === "lateral-medial" ? "btn-primary" : ""}`}
+            onClick={() => setMode("lateral-medial")}
+            style={{ flex: 1 }}
+          >
+            Orthogonal
+          </button>
+          <button
+            type="button"
+            className={`btn btn-sm ${mode === "superior-inferior" ? "btn-primary" : ""}`}
+            onClick={() => setMode("superior-inferior")}
+            style={{ flex: 1 }}
+          >
+            Superior–Inferior
+          </button>
+        </div>
       </div>
       {message && (
         <div style={{ fontSize: 12.5, color: message.ok ? "var(--accent)" : "var(--danger)" }}>{message.text}</div>

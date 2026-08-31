@@ -149,6 +149,23 @@ export default function ElectrodeRow({ electrode }: { electrode: Electrode }) {
               placeholder="Optional notes"
             />
           </div>
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              fontSize: 12.5,
+              color: "var(--muted)",
+              cursor: "pointer",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={electrode.showTarget !== false}
+              onChange={(e) => updateElectrode(electrode.id, { showTarget: e.target.checked })}
+            />
+            Show target X
+          </label>
           <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 10 }}>
             <div className="field" style={{ maxWidth: 140 }}>
               <label>Color</label>

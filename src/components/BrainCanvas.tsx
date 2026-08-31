@@ -330,13 +330,15 @@ function ElectrodeMarks({
           r={dotR}
           onPointerDown={(e) => onStartDrag(e, { kind: "electrode", electrodeId: electrode.id, field: "entry" })}
         />
-        <TargetX
-          point={electrode.target}
-          color={color}
-          strokeW={strokeW}
-          r={xR}
-          onPointerDown={(e) => onStartDrag(e, { kind: "electrode", electrodeId: electrode.id, field: "target" })}
-        />
+        {electrode.showTarget !== false && (
+          <TargetX
+            point={electrode.target}
+            color={color}
+            strokeW={strokeW}
+            r={xR}
+            onPointerDown={(e) => onStartDrag(e, { kind: "electrode", electrodeId: electrode.id, field: "target" })}
+          />
+        )}
         {showNames && (
           <>
             <NameLabel point={electrode.entry} text={electrode.name} color={color} dy={dotR + 16} />
@@ -357,13 +359,15 @@ function ElectrodeMarks({
         r={dotR}
         onPointerDown={(e) => onStartDrag(e, { kind: "electrode", electrodeId: electrode.id, field: "lateralStart" })}
       />
-      <TargetX
-        point={electrode.lateralEnd}
-        color={color}
-        strokeW={strokeW}
-        r={xR}
-        onPointerDown={(e) => onStartDrag(e, { kind: "electrode", electrodeId: electrode.id, field: "lateralEnd" })}
-      />
+      {electrode.showTarget !== false && (
+        <TargetX
+          point={electrode.lateralEnd}
+          color={color}
+          strokeW={strokeW}
+          r={xR}
+          onPointerDown={(e) => onStartDrag(e, { kind: "electrode", electrodeId: electrode.id, field: "lateralEnd" })}
+        />
+      )}
       {showNames && (
         <NameLabel point={electrode.lateralStart} text={electrode.name} color={color} dy={-(dotR + 10)} />
       )}

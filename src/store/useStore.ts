@@ -98,7 +98,7 @@ interface StoreState {
   // actions: electrodes
   addLateralMedial: (partial?: Partial<LateralMedialElectrode>) => LateralMedialElectrode;
   addSuperiorInferior: (partial?: Partial<SuperiorInferiorElectrode>) => SuperiorInferiorElectrode;
-  addByName: (name: string) => { ok: boolean; message: string };
+  addByName: (name: string, mode?: Electrode["type"]) => { ok: boolean; message: string };
   mirrorElectrode: (id: string) => { ok: boolean; message: string };
   addByAnatomy: (record: AnatomyRecord) => void;
   updateElectrode: (id: string, patch: Partial<Electrode>) => void;
@@ -333,6 +333,7 @@ export const useStore = create<StoreState>((set, get) => ({
       entryName: partial?.entryName ?? "",
       targetName: partial?.targetName ?? "",
       notes: partial?.notes ?? "",
+      showTarget: partial?.showTarget ?? true,
       order: s.electrodes.length,
       createdAt: nowISO(),
       updatedAt: nowISO(),
@@ -356,6 +357,7 @@ export const useStore = create<StoreState>((set, get) => ({
       entryName: partial?.entryName ?? "",
       targetName: partial?.targetName ?? "",
       notes: partial?.notes ?? "",
+      showTarget: partial?.showTarget ?? true,
       order: s.electrodes.length,
       createdAt: nowISO(),
       updatedAt: nowISO(),
@@ -367,7 +369,7 @@ export const useStore = create<StoreState>((set, get) => ({
     return electrode;
   },
 
-  addByName: (rawName) => {
+  addByName: (rawName, mode = "lateral-medial") => {
     const s = get();
     const name = rawName.trim().toUpperCase();
     if (!name) return { ok: false, message: "Enter a name." };
@@ -392,8 +394,9 @@ export const useStore = create<StoreState>((set, get) => ({
       return { ok: true, message: `Placed ${name} from the anatomical library (${libraryMatch.targetName}).` };
     }
 
-    // Try superior-inferior config lookup next (exact-name match, e.g. LAI, RPF)
-    if (s.siRegions && s.siRegions[name] && s.regions) {
+    // Use the superior-inferior config only when explicitly requested. The
+    // anatomical library above always takes precedence because it is curated.
+    if (mode === "superior-inferior" && s.siRegions && s.siRegions[name] && s.regions) {
       const anchor = s.siRegions[name];
       const { referenceWidth: rw, referenceHeight: rh } = s.regions;
       const toN = (p: [number, number]) => pixelToNormalized(p[0], p[1], s.regions!);
@@ -409,8 +412,8 @@ export const useStore = create<StoreState>((set, get) => ({
       return { ok: true, message: `Placed ${name} from the superior-inferior config.` };
     }
 
-    // Otherwise try lateral-medial 4-letter parsing
-    const parsed = parseLateralMedialName(name);
+    // Otherwise try lateral-medial 4-letter parsing when orthogonal placement is selected.
+    const parsed = mode === "lateral-medial" ? parseLateralMedialName(name) : null;
     if (parsed && s.regions) {
       const quadKeyLateral = parsed.side === "L" ? "leftLateral" : "rightLateral";
       const quadKeyMedial = parsed.side === "L" ? "leftMedial" : "rightMedial";
@@ -432,11 +435,17 @@ export const useStore = create<StoreState>((set, get) => ({
 
     // Fallback: allow free-form names that don't fit the standard nomenclature
     // (e.g. an electrode named for a lesion it passes through). Placed manually.
-    const created = s.addLateralMedial({ name });
+    const created =
+      mode === "superior-inferior"
+        ? s.addSuperiorInferior({ name })
+        : s.addLateralMedial({ name });
     set({ selectedId: created.id });
     return {
       ok: true,
-      message: `Added "${name}" manually -- drag the entry (●) and target (✕) markers into place.`,
+      message:
+        mode === "superior-inferior"
+          ? `Added "${name}" as a superior-inferior electrode -- drag the entry (●) and target (✕) markers into place.`
+          : `Added "${name}" manually -- drag the entry (●) and target (✕) markers into place.`,
     };
   },
 

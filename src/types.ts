@@ -13,6 +13,8 @@ export interface BaseElectrode {
   entryName: string;
   targetName: string;
   notes: string;
+  /** Whether the target X marker is shown on the planner canvas. */
+  showTarget: boolean;
   order: number;
   createdAt: string;
   updatedAt: string;
