@@ -329,7 +329,7 @@ function LibraryTab({ onDone }: { onDone: () => void }) {
     const code = row.electrodeName.trim().toUpperCase();
     const notTaken = code && !isNameTaken(code, useStore.getState().electrodes);
     if (row.kind === "si") {
-      if (notTaken) addByName(code);
+      if (notTaken) addByName(code, "superior-inferior");
       return;
     }
     if (notTaken) {
