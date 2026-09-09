@@ -35,6 +35,20 @@ function fitRect(aspect: number): SlideRect {
   return { x: (SLIDE_W - w) / 2, y: DIAGRAM_TOP, w, h };
 }
 
+// Fits an image into `box`, preserving aspect ratio and maximizing height first
+// (rather than width first, as fitRect() does) -- used for the overview slide so
+// the figure uses the full available slide height whenever the aspect ratio allows,
+// only shrinking to the box width if the image is too wide to fit at full height.
+function fitRectToHeight(aspect: number, box: SlideRect): SlideRect {
+  let h = box.h;
+  let w = h * aspect;
+  if (w > box.w) {
+    w = box.w;
+    h = w / aspect;
+  }
+  return { x: box.x + (box.w - w) / 2, y: box.y + (box.h - h) / 2, w, h };
+}
+
 function sideOfElectrode(e: Electrode): "L" | "R" {
   const n = e.name.trim().toUpperCase();
   if (n.startsWith("L")) return "L";
@@ -216,7 +230,8 @@ export async function exportWorkspacePptx({
 
   // Slide 1: both hemispheres + compact electrode summary on the left.
   const overviewSlide = addTitleSlide("Both Hemispheres");
-  const overviewRect = { x: 4.65, y: 1.3, w: 8.25, h: 5.85 };
+  const overviewBox: SlideRect = { x: 4.65, y: DIAGRAM_TOP, w: SLIDE_W - 4.65 - 0.5, h: SLIDE_H - DIAGRAM_TOP - 0.35 };
+  const overviewRect = fitRectToHeight(fullSize.width / fullSize.height, overviewBox);
   overviewSlide.addImage({
     data: bgFull,
     x: overviewRect.x,
