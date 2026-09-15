@@ -20,7 +20,9 @@ export default function ElectrodePanel() {
   const reorderElectrodes = useStore((s) => s.reorderElectrodes);
   const selectedId = useStore((s) => s.selectedId);
   const mirrorElectrode = useStore((s) => s.mirrorElectrode);
+  const removeElectrode = useStore((s) => s.removeElectrode);
   const [showAdd, setShowAdd] = useState(false);
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
@@ -38,6 +40,52 @@ export default function ElectrodePanel() {
     );
   }, [sorted, searchQuery]);
 
+  // Only count checked ids that still exist, so a stale id left over from a
+  // deleted/imported electrode never shows a phantom selection count.
+  const checkedCount = useMemo(
+    () => electrodes.reduce((n, e) => (checkedIds.has(e.id) ? n + 1 : n), 0),
+    [electrodes, checkedIds]
+  );
+  const allFilteredChecked = filtered.length > 0 && filtered.every((e) => checkedIds.has(e.id));
+
+  const toggleChecked = (id: string) => {
+    setCheckedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAllFiltered = () => {
+    setCheckedIds((prev) => {
+      const next = new Set(prev);
+      if (allFilteredChecked) filtered.forEach((e) => next.delete(e.id));
+      else filtered.forEach((e) => next.add(e.id));
+      return next;
+    });
+  };
+
+  const handleBulkMirror = () => {
+    const failures: string[] = [];
+    checkedIds.forEach((id) => {
+      const result = mirrorElectrode(id);
+      if (!result.ok) {
+        const e = electrodes.find((el) => el.id === id);
+        failures.push(`${e?.name ?? id}: ${result.message}`);
+      }
+    });
+    setCheckedIds(new Set());
+    if (failures.length) window.alert(`Some electrodes could not be mirrored:\n${failures.join("\n")}`);
+  };
+
+  const handleBulkDelete = () => {
+    if (checkedCount === 0) return;
+    if (!window.confirm(`Delete ${checkedCount} selected electrode${checkedCount === 1 ? "" : "s"}?`)) return;
+    checkedIds.forEach((id) => removeElectrode(id));
+    setCheckedIds(new Set());
+  };
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
@@ -53,10 +101,33 @@ export default function ElectrodePanel() {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
       <div style={{ padding: "14px 16px 10px", display: "flex", flexDirection: "column", gap: 10 }}>
+        <button
+          className="btn btn-primary"
+          onClick={() => setShowAdd(true)}
+          style={{ width: "100%", padding: "12px 16px", fontSize: 15, fontWeight: 700 }}
+        >
+          + Add Electrode
+        </button>
+
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <strong style={{ fontSize: 14 }}>Electrodes</strong>
+          <span className="badge">{electrodes.length}</span>
+        </div>
+
         <div style={{ display: "flex", gap: 6 }}>
-          <button className="btn btn-primary btn-sm" onClick={() => setShowAdd(true)} style={{ flex: 1 }}>
-            + Add Electrode
-          </button>
+          <input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search name, entry, target, notes"
+            style={{
+              flex: 1,
+              minWidth: 0,
+              padding: "8px 11px",
+              border: "1px solid var(--line-strong)",
+              borderRadius: "var(--radius-sm)",
+              fontSize: 13,
+            }}
+          />
           <button
             className="btn btn-sm"
             disabled={!selectedId}
@@ -67,24 +138,36 @@ export default function ElectrodePanel() {
               if (!result.ok) window.alert(result.message);
             }}
           >
-            Mirror to R/L
+            Mirror R/L
           </button>
         </div>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <strong style={{ fontSize: 14 }}>Electrodes</strong>
-          <span className="badge">{electrodes.length}</span>
-        </div>
-        <input
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search name, entry, target, notes"
-          style={{
-            padding: "8px 11px",
-            border: "1px solid var(--line-strong)",
-            borderRadius: "var(--radius-sm)",
-            fontSize: 13,
-          }}
-        />
+
+        {checkedCount > 0 && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 8,
+              padding: "7px 10px",
+              background: "var(--accent-soft)",
+              borderRadius: "var(--radius-sm)",
+            }}
+          >
+            <span style={{ fontSize: 12.5, fontWeight: 600 }}>{checkedCount} selected</span>
+            <div style={{ display: "flex", gap: 6 }}>
+              <button className="btn btn-sm" title="Mirror all selected electrodes to the opposite hemisphere" onClick={handleBulkMirror}>
+                Mirror R/L
+              </button>
+              <button className="btn btn-sm btn-danger" onClick={handleBulkDelete}>
+                Delete
+              </button>
+              <button className="btn btn-ghost btn-sm" title="Clear selection" onClick={() => setCheckedIds(new Set())}>
+                Clear
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {electrodes.length > 0 && (
@@ -107,6 +190,16 @@ export default function ElectrodePanel() {
           <span>Name</span>
           <span>Entry</span>
           <span>Target</span>
+          <input
+            type="checkbox"
+            checked={allFilteredChecked}
+            onChange={toggleSelectAllFiltered}
+            title="Select all"
+            style={{ width: 14, height: 14, cursor: "pointer", justifySelf: "center" }}
+          />
+          <span title="Toggle whether the target marker (X) shows on the canvas" style={{ justifySelf: "center" }}>
+            X
+          </span>
           <span />
         </div>
       )}
@@ -120,7 +213,12 @@ export default function ElectrodePanel() {
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={filtered.map((e) => e.id)} strategy={verticalListSortingStrategy}>
             {filtered.map((e) => (
-              <ElectrodeRow key={e.id} electrode={e} />
+              <ElectrodeRow
+                key={e.id}
+                electrode={e}
+                checked={checkedIds.has(e.id)}
+                onToggleChecked={() => toggleChecked(e.id)}
+              />
             ))}
           </SortableContext>
         </DndContext>

@@ -21,9 +21,17 @@ const cellInputStyle: React.CSSProperties = {
   background: "var(--surface)",
 };
 
-export const ROW_GRID_COLUMNS = "14px 62px 1fr 1fr 22px";
+export const ROW_GRID_COLUMNS = "14px 62px 1fr 1fr 18px 18px 22px";
 
-export default function ElectrodeRow({ electrode }: { electrode: Electrode }) {
+export default function ElectrodeRow({
+  electrode,
+  checked,
+  onToggleChecked,
+}: {
+  electrode: Electrode;
+  checked: boolean;
+  onToggleChecked: () => void;
+}) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: electrode.id,
   });
@@ -111,6 +119,33 @@ export default function ElectrodeRow({ electrode }: { electrode: Electrode }) {
           style={cellInputStyle}
         />
 
+        <input
+          type="checkbox"
+          checked={checked}
+          onClick={(e) => e.stopPropagation()}
+          onChange={onToggleChecked}
+          title="Select for bulk actions (mirror or delete)"
+          style={{ width: 14, height: 14, cursor: "pointer", justifySelf: "center" }}
+        />
+
+        <button
+          className="btn btn-ghost btn-sm"
+          onClick={(e) => {
+            e.stopPropagation();
+            updateElectrode(electrode.id, { showTarget: !(electrode.showTarget !== false) });
+          }}
+          title={electrode.showTarget !== false ? "Target marker (X) visible on canvas -- click to hide" : "Target marker (X) hidden on canvas -- click to show"}
+          style={{
+            padding: "2px 4px",
+            fontSize: 13,
+            fontWeight: 700,
+            color: electrode.showTarget !== false ? "var(--accent)" : "var(--faint)",
+            opacity: electrode.showTarget !== false ? 1 : 0.5,
+          }}
+        >
+          &#10005;
+        </button>
+
         <button
           className="btn btn-ghost btn-sm"
           onClick={(e) => {
@@ -149,23 +184,6 @@ export default function ElectrodeRow({ electrode }: { electrode: Electrode }) {
               placeholder="Optional notes"
             />
           </div>
-          <label
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              fontSize: 12.5,
-              color: "var(--muted)",
-              cursor: "pointer",
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={electrode.showTarget !== false}
-              onChange={(e) => updateElectrode(electrode.id, { showTarget: e.target.checked })}
-            />
-            Show target X
-          </label>
           <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 10 }}>
             <div className="field" style={{ maxWidth: 140 }}>
               <label>Color</label>
