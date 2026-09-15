@@ -1,74 +1,74 @@
 {
   "LAI": {
     "lateralStart": [
-      157,
-      210
+      135,
+      159
     ],
     "lateralEnd": [
-      335,
-      441
+      324,
+      446
     ],
     "preferredEntry": "Superior Frontal Gyrus",
-    "targetName": "Anterior insula (left)"
-  },
-  "RAI": {
-    "lateralStart": [
-      1599,
-      210
-    ],
-    "lateralEnd": [
-      1428,
-      430
-    ],
-    "preferredEntry": "Superior frontal gyrus",
-    "targetName": "Anterior Insula (right)"
-  },
-  "RFO": {
-    "lateralStart": [
-      1666,
-      303
-    ],
-    "lateralEnd": [
-      1546,
-      450
-    ],
-    "preferredEntry": "Superior frontal gyrus",
-    "targetName": "Orbitofrontal (right)"
-  },
-  "LFO": {
-    "lateralStart": [
-      113,
-      249
-    ],
-    "lateralEnd": [
-      228,
-      470
-    ],
-    "preferredEntry": "Superior frontal gyrus",
-    "targetName": "Orbitofrontal (left)"
+    "targetName": "Anterior insula - ASG (left)"
   },
   "LPI": {
     "lateralStart": [
-      541,
-      81
+      545,
+      36
     ],
     "lateralEnd": [
-      393,
-      403
+      401,
+      436
     ],
     "preferredEntry": "Superior parietal lobule",
     "targetName": "Posterior insula (left)"
   },
+  "LFOA": {
+    "lateralStart": [
+      24,
+      258
+    ],
+    "lateralEnd": [
+      164,
+      490
+    ],
+    "preferredEntry": "Superior frontal gyrus",
+    "targetName": "Orbitofrontal (anterior)"
+  },
+  "RAI": {
+    "lateralStart": [
+      1635,
+      159
+    ],
+    "lateralEnd": [
+      1446,
+      446
+    ],
+    "preferredEntry": "Superior Frontal Gyrus",
+    "targetName": "Anterior insula - ASG (left)"
+  },
   "RPI": {
     "lateralStart": [
-      1231,
-      88
+      1225,
+      36
     ],
     "lateralEnd": [
       1369,
-      405
+      436
     ],
     "preferredEntry": "Superior parietal lobule",
-    "targetName": "Posterior insula (right)"
+    "targetName": "Posterior insula (left)"
+  },
+  "RFOA": {
+    "lateralStart": [
+      1746,
+      258
+    ],
+    "lateralEnd": [
+      1606,
+      490
+    ],
+    "preferredEntry": "Superior frontal gyrus",
+    "targetName": "Orbitofrontal (anterior)"
   }
 }
