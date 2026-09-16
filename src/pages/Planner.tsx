@@ -11,6 +11,7 @@ import { REF_H, REF_W } from "../lib/constants";
 export default function Planner() {
   const electrodes = useStore((s) => s.electrodes);
   const sketches = useStore((s) => s.sketches);
+  const texts = useStore((s) => s.texts);
   const patientLabel = useStore((s) => s.patientLabel);
   const planNotes = useStore((s) => s.planNotes);
   const setPatientLabel = useStore((s) => s.setPatientLabel);
@@ -23,6 +24,12 @@ export default function Planner() {
   const sketchDraftColor = useStore((s) => s.sketchDraftColor);
   const sketchDraftOpacity = useStore((s) => s.sketchDraftOpacity);
   const setSketchDraft = useStore((s) => s.setSketchDraft);
+  const textMode = useStore((s) => s.textMode);
+  const setTextMode = useStore((s) => s.setTextMode);
+  const textDraft = useStore((s) => s.textDraft);
+  const setTextDraft = useStore((s) => s.setTextDraft);
+  const selectedTextId = useStore((s) => s.selectedTextId);
+  const setSelectedTextId = useStore((s) => s.setSelectedTextId);
   const undo = useStore((s) => s.undo);
   const redo = useStore((s) => s.redo);
   const undoCount = useStore((s) => s.undoStack.length);
@@ -41,6 +48,8 @@ export default function Planner() {
       if (e.key === "Escape") {
         setSelected(null);
         setSelectedSketchId(null);
+        setSelectedTextId(null);
+        useStore.getState().setTextMode(false);
         return;
       }
       if ((e.metaKey || e.ctrlKey) && !e.altKey) {
@@ -56,10 +65,11 @@ export default function Planner() {
         }
       }
       if (e.key === "Delete" || e.key === "Backspace") {
-        if (selectedId || selectedSketchId) {
+        if (selectedId || selectedSketchId || selectedTextId) {
           e.preventDefault();
           if (selectedId) useStore.getState().removeElectrode(selectedId);
           else if (selectedSketchId) useStore.getState().removeSketch(selectedSketchId);
+          else if (selectedTextId) useStore.getState().removeText(selectedTextId);
         }
         return;
       }
@@ -67,7 +77,7 @@ export default function Planner() {
         ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1],
       };
       const delta = arrows[e.key];
-      if (delta && (selectedId || selectedSketchId)) {
+      if (delta && (selectedId || selectedSketchId || selectedTextId)) {
         e.preventDefault();
         const pixels = e.shiftKey ? 10 : 2;
         nudgeSelection((delta[0] * pixels) / REF_W, (delta[1] * pixels) / REF_H);
@@ -75,7 +85,17 @@ export default function Planner() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [nudgeSelection, redo, selectedId, selectedSketchId, setSelected, setSelectedSketchId, undo]);
+  }, [
+    nudgeSelection,
+    redo,
+    selectedId,
+    selectedSketchId,
+    selectedTextId,
+    setSelected,
+    setSelectedSketchId,
+    setSelectedTextId,
+    undo,
+  ]);
 
   const canvasWrapRef = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -120,6 +140,7 @@ export default function Planner() {
         await exportWorkspacePptx({
           electrodes,
           sketches,
+          texts,
           patientLabel,
           planNotes,
           showNames,
@@ -194,6 +215,43 @@ export default function Planner() {
                 style={{ width: 80 }}
               />
               <span style={{ fontSize: 11, color: "var(--muted)" }}>Trace freehand on canvas</span>
+            </div>
+          )}
+          <ToggleButton active={textMode} onClick={() => setTextMode(!textMode)}>
+            T Add Text
+          </ToggleButton>
+          {textMode && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--surface-2)", padding: "5px 10px", borderRadius: 8 }}>
+              <input
+                value={textDraft.content}
+                onChange={(e) => setTextDraft({ content: e.target.value })}
+                placeholder="Label text"
+                style={{
+                  border: "1px solid var(--line-strong)",
+                  borderRadius: 6,
+                  padding: "4px 8px",
+                  fontSize: 12.5,
+                  width: 150,
+                }}
+              />
+              <input
+                type="color"
+                value={textDraft.color}
+                onChange={(e) => setTextDraft({ color: e.target.value })}
+                style={{ width: 28, height: 24, padding: 1, cursor: "pointer" }}
+                title="Text color"
+              />
+              <input
+                type="range"
+                min={12}
+                max={72}
+                step={1}
+                value={textDraft.fontSize}
+                onChange={(e) => setTextDraft({ fontSize: Number(e.target.value) })}
+                title="Text size"
+                style={{ width: 70 }}
+              />
+              <span style={{ fontSize: 11, color: "var(--muted)" }}>Click the canvas to place</span>
             </div>
           )}
           <div style={{ display: "flex", gap: 5 }} title="Undo / redo (Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z)">

@@ -4,7 +4,7 @@
 
 export type Point = { x: number; y: number };
 
-export type ElectrodeType = "lateral-medial" | "superior-inferior";
+export type ElectrodeType = "lateral-medial" | "superior-inferior" | "grid";
 
 export interface BaseElectrode {
   id: string;
@@ -32,7 +32,33 @@ export interface SuperiorInferiorElectrode extends BaseElectrode {
   lateralEnd: Point;
 }
 
-export type Electrode = LateralMedialElectrode | SuperiorInferiorElectrode;
+/**
+ * Subdural grid / strip electrode.
+ *
+ * Geometry is a rotatable rectangle: a normalized center on the template, plus
+ * width/height in *isotropic* units (fractions of REF_W on both axes) so a square
+ * grid stays square even though the template image is not square, and so rotation
+ * never distorts the array. `rotation` is degrees clockwise about the center.
+ */
+export interface GridElectrode extends BaseElectrode {
+  type: "grid";
+  /** Contact rows (1 for a strip). */
+  rows: number;
+  /** Contact columns. */
+  cols: number;
+  /** Center of the array, normalized 0..1 on the template. */
+  center: Point;
+  /** Array width, as a fraction of REF_W. */
+  width: number;
+  /** Array height, also as a fraction of REF_W (isotropic units). */
+  height: number;
+  /** Clockwise rotation about the center, in degrees. */
+  rotation: number;
+  /** Whether contact numbers are drawn inside the contacts. */
+  contactNumbers: boolean;
+}
+
+export type Electrode = LateralMedialElectrode | SuperiorInferiorElectrode | GridElectrode;
 
 export interface FreehandSketch {
   id: string;
@@ -40,6 +66,20 @@ export interface FreehandSketch {
   points: Point[];
   color: string;
   opacity: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Free-standing text label placed on the canvas, independent of any electrode. */
+export interface TextAnnotation {
+  id: string;
+  content: string;
+  /** Anchor point, normalized 0..1 on the template; the text is centered on it. */
+  position: Point;
+  color: string;
+  /** Font size in REF pixel units, so it scales with the canvas. */
+  fontSize: number;
+  bold: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -101,6 +141,8 @@ export interface SeegPlanFile {
   planNotes: string;
   electrodes: Electrode[];
   sketches: FreehandSketch[];
+  /** Optional: absent in files written before text annotations existed. */
+  texts?: TextAnnotation[];
 }
 
 export const CURRENT_FORMAT_VERSION = "1.0";

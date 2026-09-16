@@ -3,11 +3,14 @@ import { cropHalf, fetchImageAsDataUrl, getImageSize, rasterizeSketches } from "
 import { REF_H, REF_W } from "../constants";
 import { stripHash } from "../color";
 import { centroid } from "../geometry";
-import type { Electrode, FreehandSketch, Point } from "../../types";
+import { contactRadiusPx, gridContacts, gridCorners, gridSizePx, localToPixels } from "../grid";
+import { REF_H as GRID_REF_H, REF_W as GRID_REF_W } from "../constants";
+import type { Electrode, FreehandSketch, GridElectrode, Point, TextAnnotation } from "../../types";
 
 interface PptxOptions {
   electrodes: Electrode[];
   sketches: FreehandSketch[];
+  texts: TextAnnotation[];
   patientLabel: string;
   planNotes: string;
   institution?: string;
@@ -53,13 +56,19 @@ function sideOfElectrode(e: Electrode): "L" | "R" {
   const n = e.name.trim().toUpperCase();
   if (n.startsWith("L")) return "L";
   if (n.startsWith("R")) return "R";
-  const nx = e.type === "lateral-medial" ? (e.entry.x + e.target.x) / 2 : (e.lateralStart.x + e.lateralEnd.x) / 2;
+  const nx =
+    e.type === "lateral-medial"
+      ? (e.entry.x + e.target.x) / 2
+      : e.type === "grid"
+        ? e.center.x
+        : (e.lateralStart.x + e.lateralEnd.x) / 2;
   return nx < 0.5 ? "L" : "R";
 }
 
 export async function exportWorkspacePptx({
   electrodes,
   sketches,
+  texts,
   patientLabel,
   planNotes,
   institution,
@@ -120,6 +129,94 @@ export async function exportWorkspacePptx({
     });
   }
 
+  /** Straight segment between two slide points; used for grid outlines and trajectories. */
+  function addSegment(
+    slide: PptxGenJS.Slide,
+    a: { x: number; y: number },
+    b: { x: number; y: number },
+    colorHex: string,
+    widthPt: number,
+    dashed = false
+  ) {
+    const x = Math.min(a.x, b.x);
+    const y = Math.min(a.y, b.y);
+    const w = Math.max(Math.abs(b.x - a.x), 0.005);
+    const h = Math.max(Math.abs(b.y - a.y), 0.005);
+    const topLeftToBottomRight = (a.x <= b.x) === (a.y <= b.y);
+    slide.addShape("line", {
+      x,
+      y,
+      w,
+      h,
+      line: dashed
+        ? { color: stripHash(colorHex), width: widthPt, dashType: "dash" }
+        : { color: stripHash(colorHex), width: widthPt },
+      flipV: !topLeftToBottomRight,
+    });
+  }
+
+  /**
+   * Grid / strip array: outline plus one small circle per contact. `pxScale` converts
+   * REF pixels to slide inches, so contacts keep their on-canvas size.
+   */
+  function addGridArray(
+    slide: PptxGenJS.Slide,
+    grid: GridElectrode,
+    toSlide: (p: Point) => { x: number; y: number },
+    pxScale: number
+  ) {
+    const px = (p: { x: number; y: number }) => toSlide({ x: p.x / GRID_REF_W, y: p.y / GRID_REF_H });
+    const corners = gridCorners(grid).map(px);
+    for (let i = 0; i < corners.length; i++) {
+      addSegment(slide, corners[i], corners[(i + 1) % corners.length], grid.color, 1.5);
+    }
+    const rIn = contactRadiusPx(grid) * pxScale;
+    gridContacts(grid).forEach((c) => {
+      const p = px({ x: c.x, y: c.y });
+      slide.addShape("ellipse", {
+        x: p.x - rIn,
+        y: p.y - rIn,
+        w: rIn * 2,
+        h: rIn * 2,
+        fill: { color: "FFFFFF" },
+        line: { color: stripHash(grid.color), width: 1 },
+      });
+    });
+    if (showNames) {
+      const { h } = gridSizePx(grid);
+      const label = px(localToPixels(grid, 0, -h / 2 - 18));
+      addNameLabel(slide, label, grid.name, grid.color, false);
+    }
+  }
+
+  /** Free-standing text labels, sized from their on-canvas font size. */
+  function drawTexts(
+    slide: PptxGenJS.Slide,
+    list: TextAnnotation[],
+    toSlide: (p: Point) => { x: number; y: number },
+    pxScale: number
+  ) {
+    list.forEach((t) => {
+      const p = toSlide(t.position);
+      const fontSize = Math.max(6, t.fontSize * pxScale * 72);
+      const lines = t.content.split("\n").length;
+      const h = (fontSize / 72) * 1.35 * lines;
+      slide.addText(t.content, {
+        x: p.x - 2,
+        y: p.y - h / 2,
+        w: 4,
+        h,
+        align: "center",
+        valign: "middle",
+        fontSize,
+        bold: t.bold,
+        color: stripHash(t.color),
+        fontFace: "Arial",
+        margin: 0,
+      });
+    });
+  }
+
   function addTrajectoryLine(slide: PptxGenJS.Slide, a: { x: number; y: number }, b: { x: number; y: number }, colorHex: string) {
     const x = Math.min(a.x, b.x);
     const y = Math.min(a.y, b.y);
@@ -168,9 +265,16 @@ export async function exportWorkspacePptx({
     });
   }
 
-  function drawElectrodes(slide: PptxGenJS.Slide, list: Electrode[], toSlide: (p: Point) => { x: number; y: number }) {
+  function drawElectrodes(
+    slide: PptxGenJS.Slide,
+    list: Electrode[],
+    toSlide: (p: Point) => { x: number; y: number },
+    pxScale: number
+  ) {
     list.forEach((e) => {
-      if (e.type === "lateral-medial") {
+      if (e.type === "grid") {
+        addGridArray(slide, e, toSlide, pxScale);
+      } else if (e.type === "lateral-medial") {
         const entry = toSlide(e.entry);
         const target = toSlide(e.target);
         addDot(slide, entry, e.color);
@@ -206,6 +310,7 @@ export async function exportWorkspacePptx({
     aspect: number,
     list: Electrode[],
     sketchList: FreehandSketch[],
+    textList: TextAnnotation[],
     localMap: (p: Point) => Point
   ) {
     const slide = addTitleSlide(title);
@@ -218,8 +323,11 @@ export async function exportWorkspacePptx({
       const local = localMap(p);
       return { x: rect.x + local.x * rect.w, y: rect.y + local.y * rect.h };
     };
+    // Vertical scale is isotropic for both the full image and the cropped halves.
+    const pxScale = rect.h / REF_H;
     drawSketchLabels(slide, sketchList, toSlide);
-    drawElectrodes(slide, list, toSlide);
+    drawElectrodes(slide, list, toSlide, pxScale);
+    drawTexts(slide, textList, toSlide, pxScale);
     return slide;
   }
 
@@ -252,8 +360,10 @@ export async function exportWorkspacePptx({
     x: overviewRect.x + p.x * overviewRect.w,
     y: overviewRect.y + p.y * overviewRect.h,
   });
+  const overviewPxScale = overviewRect.h / REF_H;
   drawSketchLabels(overviewSlide, sketches, overviewToSlide);
-  drawElectrodes(overviewSlide, electrodes, overviewToSlide);
+  drawElectrodes(overviewSlide, electrodes, overviewToSlide, overviewPxScale);
+  drawTexts(overviewSlide, texts, overviewToSlide, overviewPxScale);
 
   const sorted = [...electrodes].sort((a, b) => a.order - b.order);
   const summaryRows: PptxGenJS.TableRow[] = [
@@ -293,6 +403,7 @@ export async function exportWorkspacePptx({
     fullSize.width / 2 / fullSize.height,
     electrodes.filter((e) => sideOfElectrode(e) === "L"),
     sketches.filter((sk) => sketchInHalf(sk, "L")),
+    texts.filter((t) => t.position.x < 0.5),
     (p) => ({ x: Math.min(1, Math.max(0, p.x * 2)), y: p.y })
   );
 
@@ -304,6 +415,7 @@ export async function exportWorkspacePptx({
     fullSize.width / 2 / fullSize.height,
     electrodes.filter((e) => sideOfElectrode(e) === "R"),
     sketches.filter((sk) => sketchInHalf(sk, "R")),
+    texts.filter((t) => t.position.x >= 0.5),
     (p) => ({ x: Math.min(1, Math.max(0, (p.x - 0.5) * 2)), y: p.y })
   );
 

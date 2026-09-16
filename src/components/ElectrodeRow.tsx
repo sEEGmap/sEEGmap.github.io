@@ -48,6 +48,7 @@ export default function ElectrodeRow({
   const [nameError, setNameError] = useState<string | null>(null);
 
   const isActive = electrode.id === selectedId || electrode.id === hoveredId;
+  const isGrid = electrode.type === "grid";
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -96,7 +97,9 @@ export default function ElectrodeRow({
         <input
           className="mono"
           value={nameDraft}
-          onChange={(e) => setNameDraft(e.target.value.toUpperCase())}
+          // Grid/strip names are commonly mixed case (LGridA), so only trajectory
+          // electrodes get the uppercase nomenclature treatment.
+          onChange={(e) => setNameDraft(isGrid ? e.target.value : e.target.value.toUpperCase())}
           onBlur={commitName}
           onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
           onClick={(e) => e.stopPropagation()}
@@ -128,23 +131,43 @@ export default function ElectrodeRow({
           style={{ width: 14, height: 14, cursor: "pointer", justifySelf: "center" }}
         />
 
-        <button
-          className="btn btn-ghost btn-sm"
-          onClick={(e) => {
-            e.stopPropagation();
-            updateElectrode(electrode.id, { showTarget: !(electrode.showTarget !== false) });
-          }}
-          title={electrode.showTarget !== false ? "Target marker (X) visible on canvas -- click to hide" : "Target marker (X) hidden on canvas -- click to show"}
-          style={{
-            padding: "2px 4px",
-            fontSize: 13,
-            fontWeight: 700,
-            color: electrode.showTarget !== false ? "var(--accent)" : "var(--faint)",
-            opacity: electrode.showTarget !== false ? 1 : 0.5,
-          }}
-        >
-          &#10005;
-        </button>
+        {isGrid ? (
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              updateElectrode(electrode.id, { contactNumbers: !electrode.contactNumbers } as Partial<Electrode>);
+            }}
+            title={electrode.contactNumbers ? "Contact numbers visible -- click to hide" : "Contact numbers hidden -- click to show"}
+            style={{
+              padding: "2px 4px",
+              fontSize: 13,
+              fontWeight: 700,
+              color: electrode.contactNumbers ? "var(--accent)" : "var(--faint)",
+              opacity: electrode.contactNumbers ? 1 : 0.5,
+            }}
+          >
+            #
+          </button>
+        ) : (
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              updateElectrode(electrode.id, { showTarget: !(electrode.showTarget !== false) });
+            }}
+            title={electrode.showTarget !== false ? "Target marker (X) visible on canvas -- click to hide" : "Target marker (X) hidden on canvas -- click to show"}
+            style={{
+              padding: "2px 4px",
+              fontSize: 13,
+              fontWeight: 700,
+              color: electrode.showTarget !== false ? "var(--accent)" : "var(--faint)",
+              opacity: electrode.showTarget !== false ? 1 : 0.5,
+            }}
+          >
+            &#10005;
+          </button>
+        )}
 
         <button
           className="btn btn-ghost btn-sm"
@@ -175,6 +198,51 @@ export default function ElectrodeRow({
           }}
           onClick={(e) => e.stopPropagation()}
         >
+          {electrode.type === "grid" && (
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
+              <div className="field" style={{ width: 72 }}>
+                <label>Rows</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={16}
+                  value={electrode.rows}
+                  onChange={(e) =>
+                    updateElectrode(electrode.id, {
+                      rows: Math.max(1, Math.min(16, Number(e.target.value) || 1)),
+                    } as Partial<Electrode>)
+                  }
+                />
+              </div>
+              <div className="field" style={{ width: 72 }}>
+                <label>Columns</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={16}
+                  value={electrode.cols}
+                  onChange={(e) =>
+                    updateElectrode(electrode.id, {
+                      cols: Math.max(1, Math.min(16, Number(e.target.value) || 1)),
+                    } as Partial<Electrode>)
+                  }
+                />
+              </div>
+              <div className="field" style={{ flex: 1, minWidth: 130 }}>
+                <label>Rotation ({Math.round(electrode.rotation)}&#176;)</label>
+                <input
+                  type="range"
+                  min={0}
+                  max={359}
+                  step={1}
+                  value={((electrode.rotation % 360) + 360) % 360}
+                  onChange={(e) =>
+                    updateElectrode(electrode.id, { rotation: Number(e.target.value) } as Partial<Electrode>)
+                  }
+                />
+              </div>
+            </div>
+          )}
           <div className="field">
             <label>Notes</label>
             <textarea

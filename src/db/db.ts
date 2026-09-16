@@ -1,5 +1,5 @@
 import Dexie, { type Table } from "dexie";
-import type { AnatomyRecord, Electrode, FreehandSketch } from "../types";
+import type { AnatomyRecord, Electrode, FreehandSketch, TextAnnotation } from "../types";
 
 export interface SessionMeta {
   key: string; // fixed key "current"
@@ -13,6 +13,7 @@ class SeegMapDB extends Dexie {
   anatomy!: Table<AnatomyRecord, string>;
   session!: Table<SessionMeta, string>;
   sketches!: Table<FreehandSketch, string>;
+  texts!: Table<TextAnnotation, string>;
 
   constructor() {
     super("seegmap-db");
@@ -35,20 +36,33 @@ class SeegMapDB extends Dexie {
         configOverride: null,
         sketches: "id",
       });
+    // v4 adds free-standing text annotations.
+    this.version(4).stores({
+      electrodes: "id, order, type, name",
+      anatomy: "id, targetName, category",
+      session: "key",
+      sketches: "id",
+      texts: "id",
+    });
   }
 }
 
 export const db = new SeegMapDB();
 
 export async function hasStoredSession(): Promise<boolean> {
-  const [electrodeCount, sketchCount] = await Promise.all([db.electrodes.count(), db.sketches.count()]);
-  return electrodeCount > 0 || sketchCount > 0;
+  const [electrodeCount, sketchCount, textCount] = await Promise.all([
+    db.electrodes.count(),
+    db.sketches.count(),
+    db.texts.count(),
+  ]);
+  return electrodeCount > 0 || sketchCount > 0 || textCount > 0;
 }
 
 export async function clearSession(): Promise<void> {
-  await db.transaction("rw", db.electrodes, db.session, db.sketches, async () => {
+  await db.transaction("rw", db.electrodes, db.session, db.sketches, db.texts, async () => {
     await db.electrodes.clear();
     await db.sketches.clear();
+    await db.texts.clear();
     await db.session.clear();
   });
 }

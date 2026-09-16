@@ -12,6 +12,7 @@ import { useStore } from "../store/useStore";
 import ElectrodeRow, { ROW_GRID_COLUMNS } from "./ElectrodeRow";
 import AddElectrodeDialog from "./AddElectrodeDialog";
 import SketchPanel from "./SketchPanel";
+import TextPanel from "./TextPanel";
 
 export default function ElectrodePanel() {
   const electrodes = useStore((s) => s.electrodes);
@@ -223,6 +224,7 @@ export default function ElectrodePanel() {
           </SortableContext>
         </DndContext>
         <SketchPanel />
+        <TextPanel />
       </div>
 
       {showAdd && <AddElectrodeDialog onClose={() => setShowAdd(false)} />}

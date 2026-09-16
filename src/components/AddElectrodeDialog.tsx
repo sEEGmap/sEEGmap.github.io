@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useStore } from "../store/useStore";
+import type { Electrode } from "../types";
 import {
   AMP_CODES,
   LOBE_CODES,
@@ -9,7 +10,19 @@ import {
   isNameTaken,
 } from "../lib/nomenclature";
 
-type Tab = "name" | "anatomy" | "library" | "manual";
+type Tab = "name" | "anatomy" | "library" | "manual" | "grid";
+
+/** Presets offered on the Grid/Strip tab: [label, rows, cols]. */
+const ARRAY_PRESETS: ReadonlyArray<{ label: string; rows: number; cols: number; strip: boolean }> = [
+  { label: "1 x 4 strip", rows: 1, cols: 4, strip: true },
+  { label: "1 x 6 strip", rows: 1, cols: 6, strip: true },
+  { label: "1 x 8 strip", rows: 1, cols: 8, strip: true },
+  { label: "2 x 8 grid", rows: 2, cols: 8, strip: false },
+  { label: "4 x 4 grid", rows: 4, cols: 4, strip: false },
+  { label: "4 x 5 grid", rows: 4, cols: 5, strip: false },
+  { label: "4 x 8 grid", rows: 4, cols: 8, strip: false },
+  { label: "8 x 8 grid", rows: 8, cols: 8, strip: false },
+];
 
 export default function AddElectrodeDialog({ onClose }: { onClose: () => void }) {
   const [tab, setTab] = useState<Tab>("library");
@@ -31,7 +44,7 @@ export default function AddElectrodeDialog({ onClose }: { onClose: () => void })
       <div
         className="card"
         style={{
-          width: tab === "library" ? 620 : 480,
+          width: tab === "library" ? 620 : tab === "grid" ? 520 : 480,
           maxWidth: "100%",
           maxHeight: "86vh",
           display: "flex",
@@ -56,6 +69,9 @@ export default function AddElectrodeDialog({ onClose }: { onClose: () => void })
           <TabButton active={tab === "manual"} onClick={() => setTab("manual")}>
             Create
           </TabButton>
+          <TabButton active={tab === "grid"} onClick={() => setTab("grid")}>
+            Grid/Strip
+          </TabButton>
           <TabButton active={tab === "anatomy"} onClick={() => setTab("anatomy")}>
             By Target
           </TabButton>
@@ -64,6 +80,7 @@ export default function AddElectrodeDialog({ onClose }: { onClose: () => void })
           {tab === "library" && <LibraryTab onDone={onClose} />}
           {tab === "name" && <ByNameTab onDone={onClose} />}
           {tab === "manual" && <ManualTab onDone={onClose} />}
+          {tab === "grid" && <GridStripTab onDone={onClose} />}
           {tab === "anatomy" && <ByAnatomyTab onDone={onClose} />}
         </div>
       </div>
@@ -147,6 +164,149 @@ function ByNameTab({ onDone }: { onDone: () => void }) {
       )}
       <button className="btn btn-primary" onClick={submit} disabled={!name.trim()}>
         Place Electrode
+      </button>
+    </div>
+  );
+}
+
+/**
+ * Suggest the next free array name for a side, e.g. LGridA / LGridB, or LSA / LSB for
+ * strips. Falls back to a numeric suffix if every letter is taken.
+ */
+function suggestArrayName(side: "L" | "R", strip: boolean, electrodes: Electrode[]): string {
+  const stem = strip ? `${side}S` : `${side}Grid`;
+  for (let i = 0; i < 26; i++) {
+    const candidate = `${stem}${String.fromCharCode(65 + i)}`;
+    if (!isNameTaken(candidate, electrodes)) return candidate;
+  }
+  return `${stem}${electrodes.length + 1}`;
+}
+
+function GridStripTab({ onDone }: { onDone: () => void }) {
+  const addGrid = useStore((s) => s.addGrid);
+  const setSelected = useStore((s) => s.setSelected);
+  const electrodes = useStore((s) => s.electrodes);
+
+  const [side, setSide] = useState<"L" | "R">("L");
+  const [rows, setRows] = useState(1);
+  const [cols, setCols] = useState(8);
+  const [name, setName] = useState(() => suggestArrayName("L", true, electrodes));
+  const [touchedName, setTouchedName] = useState(false);
+
+  const isStrip = rows === 1;
+
+  // Keep the suggested name in step with side/shape until the user edits it themselves.
+  const refreshName = (nextSide: "L" | "R", nextRows: number) => {
+    if (touchedName) return;
+    setName(suggestArrayName(nextSide, nextRows === 1, electrodes));
+  };
+
+  const applyPreset = (preset: { rows: number; cols: number }) => {
+    setRows(preset.rows);
+    setCols(preset.cols);
+    refreshName(side, preset.rows);
+  };
+
+  const trimmed = name.trim();
+  const taken = trimmed ? isNameTaken(trimmed, electrodes) : false;
+  const valid = !!trimmed && !taken && rows >= 1 && cols >= 1 && rows <= 16 && cols <= 16;
+
+  const submit = () => {
+    if (!valid) return;
+    const created = addGrid({ name: trimmed, rows, cols });
+    setSelected(created.id);
+    onDone();
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <p style={{ margin: 0, fontSize: 13, color: "var(--muted)", lineHeight: 1.5 }}>
+        Place a subdural grid or strip. The array is added near the top-left of the canvas and
+        selected, so you can drag it into position right away. Drag a corner handle to resize it,
+        the handle above the top edge to rotate it, and hold Shift while dragging to keep the
+        aspect ratio (resize) or snap to 15&#176; (rotate).
+      </p>
+
+      <div className="field">
+        <label>Preset</label>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          {ARRAY_PRESETS.map((p) => {
+            const active = p.rows === rows && p.cols === cols;
+            return (
+              <button
+                key={p.label}
+                type="button"
+                className={`btn btn-sm ${active ? "btn-primary" : ""}`}
+                onClick={() => applyPreset(p)}
+              >
+                {p.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+        <div className="field" style={{ width: 90 }}>
+          <label>Side</label>
+          <select
+            value={side}
+            onChange={(e) => {
+              const next = e.target.value as "L" | "R";
+              setSide(next);
+              refreshName(next, rows);
+            }}
+          >
+            <option value="L">Left</option>
+            <option value="R">Right</option>
+          </select>
+        </div>
+        <div className="field" style={{ width: 90 }}>
+          <label>Rows</label>
+          <input
+            type="number"
+            min={1}
+            max={16}
+            value={rows}
+            onChange={(e) => {
+              const next = Math.max(1, Math.min(16, Number(e.target.value) || 1));
+              setRows(next);
+              refreshName(side, next);
+            }}
+          />
+        </div>
+        <div className="field" style={{ width: 90 }}>
+          <label>Columns</label>
+          <input
+            type="number"
+            min={1}
+            max={16}
+            value={cols}
+            onChange={(e) => setCols(Math.max(1, Math.min(16, Number(e.target.value) || 1)))}
+          />
+        </div>
+        <div className="field" style={{ flex: 1, minWidth: 150 }}>
+          <label>Name</label>
+          <input
+            className="mono"
+            value={name}
+            onChange={(e) => {
+              setName(e.target.value);
+              setTouchedName(true);
+            }}
+            onKeyDown={(e) => e.key === "Enter" && submit()}
+            placeholder={isStrip ? "LSA" : "LGridA"}
+          />
+        </div>
+      </div>
+
+      <div style={{ fontSize: 12.5, color: "var(--muted)" }}>
+        {rows} x {cols} = <strong>{rows * cols}</strong> contacts ({isStrip ? "strip" : "grid"}).
+      </div>
+      {taken && <div style={{ color: "var(--danger)", fontSize: 12.5 }}>That name is already in use.</div>}
+
+      <button className="btn btn-primary" onClick={submit} disabled={!valid}>
+        Add {isStrip ? "Strip" : "Grid"}
       </button>
     </div>
   );

@@ -7,11 +7,13 @@ import type {
   BrainRegionsConfig,
   Electrode,
   FreehandSketch,
+  GridElectrode,
   LateralMedialElectrode,
   Point,
   SIRegionsConfig,
   SeegPlanFile,
   SuperiorInferiorElectrode,
+  TextAnnotation,
 } from "../types";
 import { CURRENT_FORMAT_VERSION } from "../types";
 import {
@@ -21,6 +23,7 @@ import {
 } from "../lib/nomenclature";
 import { gridPositionInQuadrant, pixelToNormalized } from "../lib/coords";
 import { clampTranslation } from "../lib/geometry";
+import { defaultGridSize } from "../lib/grid";
 
 const PALETTE = [
   "#2F6F6B", "#C0392B", "#8E5AC8", "#D68910", "#2E6DA4",
@@ -38,12 +41,14 @@ function nowISO() {
 interface PlanSnapshot {
   electrodes: Electrode[];
   sketches: FreehandSketch[];
+  texts: TextAnnotation[];
 }
 
-function cloneSnapshot(s: Pick<StoreState, "electrodes" | "sketches">): PlanSnapshot {
+function cloneSnapshot(s: Pick<StoreState, "electrodes" | "sketches" | "texts">): PlanSnapshot {
   return {
     electrodes: JSON.parse(JSON.stringify(s.electrodes)) as Electrode[],
     sketches: JSON.parse(JSON.stringify(s.sketches)) as FreehandSketch[],
+    texts: JSON.parse(JSON.stringify(s.texts)) as TextAnnotation[],
   };
 }
 
@@ -64,6 +69,7 @@ interface StoreState {
   // plan
   electrodes: Electrode[];
   sketches: FreehandSketch[];
+  texts: TextAnnotation[];
   patientLabel: string;
   planNotes: string;
   selectedId: string | null;
@@ -90,6 +96,13 @@ interface StoreState {
   setSketchDraft: (patch: { color?: string; opacity?: number }) => void;
   selectedSketchId: string | null;
   setSelectedSketchId: (id: string | null) => void;
+  /** "Add Text" placement mode: the next canvas click drops a label. */
+  textMode: boolean;
+  setTextMode: (v: boolean) => void;
+  textDraft: { content: string; color: string; fontSize: number; bold: boolean };
+  setTextDraft: (patch: Partial<StoreState["textDraft"]>) => void;
+  selectedTextId: string | null;
+  setSelectedTextId: (id: string | null) => void;
 
   // actions: bootstrap
   loadConfigs: () => Promise<void>;
@@ -98,6 +111,7 @@ interface StoreState {
   // actions: electrodes
   addLateralMedial: (partial?: Partial<LateralMedialElectrode>) => LateralMedialElectrode;
   addSuperiorInferior: (partial?: Partial<SuperiorInferiorElectrode>) => SuperiorInferiorElectrode;
+  addGrid: (partial?: Partial<GridElectrode>) => GridElectrode;
   addByName: (name: string, mode?: Electrode["type"]) => { ok: boolean; message: string };
   mirrorElectrode: (id: string) => { ok: boolean; message: string };
   addByAnatomy: (record: AnatomyRecord) => void;
@@ -114,6 +128,12 @@ interface StoreState {
   duplicateSketch: (id: string) => void;
   updateSketch: (id: string, patch: Partial<FreehandSketch>) => void;
   removeSketch: (id: string) => void;
+
+  // actions: text annotations
+  addText: (position: Point, content?: string) => TextAnnotation;
+  updateText: (id: string, patch: Partial<TextAnnotation>) => void;
+  duplicateText: (id: string) => void;
+  removeText: (id: string) => void;
 
   // actions: anatomy library
   addAnatomyRecord: (rec: Omit<AnatomyRecord, "id" | "fileOrder">) => void;
@@ -142,11 +162,13 @@ function scheduleAutosave(get: () => StoreState) {
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(async () => {
     const s = get();
-    await db.transaction("rw", db.electrodes, db.session, db.sketches, async () => {
+    await db.transaction("rw", db.electrodes, db.session, db.sketches, db.texts, async () => {
       await db.electrodes.clear();
       await db.electrodes.bulkAdd(s.electrodes);
       await db.sketches.clear();
       await db.sketches.bulkAdd(s.sketches);
+      await db.texts.clear();
+      await db.texts.bulkAdd(s.texts);
       await db.session.put({
         key: "current",
         patientLabel: s.patientLabel,
@@ -163,6 +185,7 @@ export const useStore = create<StoreState>((set, get) => ({
   anatomy: [],
   electrodes: [],
   sketches: [],
+  texts: [],
   patientLabel: "",
   planNotes: "",
   selectedId: null,
@@ -176,7 +199,15 @@ export const useStore = create<StoreState>((set, get) => ({
   showNames: true,
   toggleShowNames: () => set((s) => ({ showNames: !s.showNames })),
   drawMode: false,
-  setDrawMode: (v) => set({ drawMode: v, selectedId: v ? null : get().selectedId, selectedSketchId: v ? null : get().selectedSketchId }),
+  setDrawMode: (v) =>
+    set({
+      drawMode: v,
+      // Only one placement mode can be armed at a time.
+      textMode: v ? false : get().textMode,
+      selectedId: v ? null : get().selectedId,
+      selectedSketchId: v ? null : get().selectedSketchId,
+      selectedTextId: v ? null : get().selectedTextId,
+    }),
   sketchDraftColor: "#D68910",
   sketchDraftOpacity: 0.35,
   setSketchDraft: (patch) =>
@@ -185,7 +216,30 @@ export const useStore = create<StoreState>((set, get) => ({
       sketchDraftOpacity: patch.opacity ?? s.sketchDraftOpacity,
     })),
   selectedSketchId: null,
-  setSelectedSketchId: (id) => set({ selectedSketchId: id, selectedId: id ? null : get().selectedId }),
+  setSelectedSketchId: (id) =>
+    set({
+      selectedSketchId: id,
+      selectedId: id ? null : get().selectedId,
+      selectedTextId: id ? null : get().selectedTextId,
+    }),
+
+  textMode: false,
+  setTextMode: (v) =>
+    set({
+      textMode: v,
+      drawMode: v ? false : get().drawMode,
+      selectedId: v ? null : get().selectedId,
+      selectedSketchId: v ? null : get().selectedSketchId,
+    }),
+  textDraft: { content: "", color: "#182430", fontSize: 26, bold: true },
+  setTextDraft: (patch) => set((s) => ({ textDraft: { ...s.textDraft, ...patch } })),
+  selectedTextId: null,
+  setSelectedTextId: (id) =>
+    set({
+      selectedTextId: id,
+      selectedId: id ? null : get().selectedId,
+      selectedSketchId: id ? null : get().selectedSketchId,
+    }),
 
   beginHistoryBatch: () => {
     if (!historyBatch) historyBatch = { before: cloneSnapshot(get()) };
@@ -208,6 +262,13 @@ export const useStore = create<StoreState>((set, get) => ({
           entry: { x: Math.min(1, Math.max(0, electrode.entry.x + dx)), y: Math.min(1, Math.max(0, electrode.entry.y + dy)) },
           target: { x: Math.min(1, Math.max(0, electrode.target.x + dx)), y: Math.min(1, Math.max(0, electrode.target.y + dy)) },
         });
+      } else if (electrode.type === "grid") {
+        s.updateElectrode(electrode.id, {
+          center: {
+            x: Math.min(1, Math.max(0, electrode.center.x + dx)),
+            y: Math.min(1, Math.max(0, electrode.center.y + dy)),
+          },
+        } as Partial<Electrode>);
       } else {
         const move = (p: Point): Point => ({
           x: Math.min(1, Math.max(0, p.x + dx)),
@@ -229,6 +290,17 @@ export const useStore = create<StoreState>((set, get) => ({
           y: Math.min(1, Math.max(0, p.y + dy)),
         })),
       });
+      return;
+    }
+    if (s.selectedTextId) {
+      const text = s.texts.find((t) => t.id === s.selectedTextId);
+      if (!text) return;
+      s.updateText(text.id, {
+        position: {
+          x: Math.min(1, Math.max(0, text.position.x + dx)),
+          y: Math.min(1, Math.max(0, text.position.y + dy)),
+        },
+      });
     }
   },
 
@@ -240,10 +312,12 @@ export const useStore = create<StoreState>((set, get) => ({
     set({
       electrodes: JSON.parse(JSON.stringify(before.electrodes)) as Electrode[],
       sketches: JSON.parse(JSON.stringify(before.sketches)) as FreehandSketch[],
+      texts: JSON.parse(JSON.stringify(before.texts ?? [])) as TextAnnotation[],
       undoStack: s.undoStack.slice(0, -1),
       redoStack: [...s.redoStack, current].slice(-100),
       selectedId: s.selectedId && before.electrodes.some((e) => e.id === s.selectedId) ? s.selectedId : null,
       selectedSketchId: s.selectedSketchId && before.sketches.some((sk) => sk.id === s.selectedSketchId) ? s.selectedSketchId : null,
+      selectedTextId: s.selectedTextId && (before.texts ?? []).some((t) => t.id === s.selectedTextId) ? s.selectedTextId : null,
     });
     scheduleAutosave(get);
   },
@@ -256,10 +330,12 @@ export const useStore = create<StoreState>((set, get) => ({
     set({
       electrodes: JSON.parse(JSON.stringify(next.electrodes)) as Electrode[],
       sketches: JSON.parse(JSON.stringify(next.sketches)) as FreehandSketch[],
+      texts: JSON.parse(JSON.stringify(next.texts ?? [])) as TextAnnotation[],
       redoStack: s.redoStack.slice(0, -1),
       undoStack: [...s.undoStack, current].slice(-100),
       selectedId: s.selectedId && next.electrodes.some((e) => e.id === s.selectedId) ? s.selectedId : null,
       selectedSketchId: s.selectedSketchId && next.sketches.some((sk) => sk.id === s.selectedSketchId) ? s.selectedSketchId : null,
+      selectedTextId: s.selectedTextId && (next.texts ?? []).some((t) => t.id === s.selectedTextId) ? s.selectedTextId : null,
     });
     scheduleAutosave(get);
   },
@@ -324,14 +400,16 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   hydrateFromDB: async () => {
-    const [electrodes, sketches, session] = await Promise.all([
+    const [electrodes, sketches, texts, session] = await Promise.all([
       db.electrodes.orderBy("order").toArray(),
       db.sketches.toArray(),
+      db.texts.toArray(),
       db.session.get("current"),
     ]);
     set({
       electrodes,
       sketches,
+      texts,
       patientLabel: session?.patientLabel ?? "",
       planNotes: session?.planNotes ?? "",
       hydrated: true,
@@ -371,6 +449,43 @@ export const useStore = create<StoreState>((set, get) => ({
       color: partial?.color ?? nextColor(s.electrodes),
       lateralStart: partial?.lateralStart ?? { x: 0.5, y: 0.1 },
       lateralEnd: partial?.lateralEnd ?? { x: 0.5, y: 0.3 },
+      entryName: partial?.entryName ?? "",
+      targetName: partial?.targetName ?? "",
+      notes: partial?.notes ?? "",
+      showTarget: partial?.showTarget ?? true,
+      order: s.electrodes.length,
+      createdAt: nowISO(),
+      updatedAt: nowISO(),
+    };
+    const before = cloneSnapshot(s);
+    set({ electrodes: [...s.electrodes, electrode] });
+    if (!historyBatch) pushHistory(set, get, before);
+    scheduleAutosave(get);
+    return electrode;
+  },
+
+  addGrid: (partial) => {
+    const s = get();
+    const rows = Math.max(1, Math.round(partial?.rows ?? 1));
+    const cols = Math.max(1, Math.round(partial?.cols ?? 4));
+    const size = defaultGridSize(rows, cols);
+    // Stagger successive arrays so a second one isn't hidden underneath the first.
+    const placed = s.electrodes.filter((e) => e.type === "grid").length;
+    const electrode: GridElectrode = {
+      id: uuid(),
+      name: partial?.name ?? `GRID${placed + 1}`,
+      type: "grid",
+      color: partial?.color ?? nextColor(s.electrodes),
+      rows,
+      cols,
+      center: partial?.center ?? {
+        x: Math.min(0.9, 0.18 + placed * 0.035),
+        y: Math.min(0.9, 0.2 + placed * 0.035),
+      },
+      width: partial?.width ?? size.width,
+      height: partial?.height ?? size.height,
+      rotation: partial?.rotation ?? 0,
+      contactNumbers: partial?.contactNumbers ?? true,
       entryName: partial?.entryName ?? "",
       targetName: partial?.targetName ?? "",
       notes: partial?.notes ?? "",
@@ -508,6 +623,23 @@ export const useStore = create<StoreState>((set, get) => ({
           notes: source.notes,
         });
       }
+    } else if (source.type === "grid") {
+      // Grids/strips mirror geometrically: the center reflects across the midline and
+      // the rotation flips sign, so the array keeps its shape on the other side.
+      created = s.addGrid({
+        name: mirroredName,
+        color: source.color,
+        rows: source.rows,
+        cols: source.cols,
+        center: { x: 1 - source.center.x, y: source.center.y },
+        width: source.width,
+        height: source.height,
+        rotation: -source.rotation,
+        contactNumbers: source.contactNumbers,
+        entryName: source.entryName,
+        targetName: source.targetName,
+        notes: source.notes,
+      });
     } else {
       // Superior-inferior electrodes are mirrored geometrically. The lateral
       // superior/inferior trajectory points flip in X.
@@ -604,7 +736,12 @@ export const useStore = create<StoreState>((set, get) => ({
     scheduleAutosave(get);
   },
 
-  setSelected: (id) => set({ selectedId: id, selectedSketchId: id ? null : get().selectedSketchId }),
+  setSelected: (id) =>
+    set({
+      selectedId: id,
+      selectedSketchId: id ? null : get().selectedSketchId,
+      selectedTextId: id ? null : get().selectedTextId,
+    }),
   setHovered: (id) => set({ hoveredId: id }),
   setSearchQuery: (q) => set({ searchQuery: q }),
 
@@ -668,6 +805,64 @@ export const useStore = create<StoreState>((set, get) => ({
     scheduleAutosave(get);
   },
 
+  addText: (position, content) => {
+    const s = get();
+    const text: TextAnnotation = {
+      id: uuid(),
+      content: (content ?? s.textDraft.content).trim() || "Text",
+      position,
+      color: s.textDraft.color,
+      fontSize: s.textDraft.fontSize,
+      bold: s.textDraft.bold,
+      createdAt: nowISO(),
+      updatedAt: nowISO(),
+    };
+    const before = cloneSnapshot(s);
+    set({ texts: [...s.texts, text], selectedTextId: text.id, selectedId: null, selectedSketchId: null });
+    if (!historyBatch) pushHistory(set, get, before);
+    scheduleAutosave(get);
+    return text;
+  },
+
+  updateText: (id, patch) => {
+    const s = get();
+    const before = cloneSnapshot(s);
+    set({ texts: s.texts.map((t) => (t.id === id ? { ...t, ...patch, updatedAt: nowISO() } : t)) });
+    if (!historyBatch) pushHistory(set, get, before);
+    scheduleAutosave(get);
+  },
+
+  duplicateText: (id) => {
+    const s = get();
+    const original = s.texts.find((t) => t.id === id);
+    if (!original) return;
+    const copy: TextAnnotation = {
+      ...original,
+      id: uuid(),
+      position: {
+        x: Math.min(1, original.position.x + 0.02),
+        y: Math.min(1, original.position.y + 0.025),
+      },
+      createdAt: nowISO(),
+      updatedAt: nowISO(),
+    };
+    const before = cloneSnapshot(s);
+    set({ texts: [...s.texts, copy], selectedTextId: copy.id });
+    if (!historyBatch) pushHistory(set, get, before);
+    scheduleAutosave(get);
+  },
+
+  removeText: (id) => {
+    const s = get();
+    const before = cloneSnapshot(s);
+    set({
+      texts: s.texts.filter((t) => t.id !== id),
+      selectedTextId: s.selectedTextId === id ? null : s.selectedTextId,
+    });
+    if (!historyBatch) pushHistory(set, get, before);
+    scheduleAutosave(get);
+  },
+
   addAnatomyRecord: (rec) => {
     const s = get();
     // New manual entries go after everything already loaded from the file.
@@ -699,13 +894,25 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   newPlan: async () => {
-    await db.transaction("rw", db.electrodes, db.session, db.sketches, async () => {
+    await db.transaction("rw", db.electrodes, db.session, db.sketches, db.texts, async () => {
       await db.electrodes.clear();
       await db.sketches.clear();
+      await db.texts.clear();
       await db.session.clear();
     });
     historyBatch = null;
-    set({ electrodes: [], sketches: [], patientLabel: "", planNotes: "", selectedId: null, selectedSketchId: null, undoStack: [], redoStack: [] });
+    set({
+      electrodes: [],
+      sketches: [],
+      texts: [],
+      patientLabel: "",
+      planNotes: "",
+      selectedId: null,
+      selectedSketchId: null,
+      selectedTextId: null,
+      undoStack: [],
+      redoStack: [],
+    });
   },
 
   loadPlanFile: (file) => {
@@ -713,10 +920,12 @@ export const useStore = create<StoreState>((set, get) => ({
     set({
       electrodes: file.electrodes,
       sketches: file.sketches ?? [],
+      texts: file.texts ?? [],
       patientLabel: file.patientLabel ?? "",
       planNotes: file.planNotes ?? "",
       selectedId: null,
       selectedSketchId: null,
+      selectedTextId: null,
       undoStack: [],
       redoStack: [],
     });
@@ -734,6 +943,7 @@ export const useStore = create<StoreState>((set, get) => ({
       planNotes: s.planNotes,
       electrodes: s.electrodes,
       sketches: s.sketches,
+      texts: s.texts,
     };
     return file;
   },
