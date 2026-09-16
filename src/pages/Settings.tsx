@@ -14,6 +14,32 @@ export default function Settings() {
     await newPlan();
   };
 
+  const handleForceRefresh = async () => {
+    // Clear any Cache Storage entries / service worker registrations. The app
+    // doesn't currently use either, but this makes the button future-proof
+    // and harmless either way. It does NOT touch IndexedDB, so the saved plan
+    // is untouched.
+    try {
+      if ("caches" in window) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map((key) => caches.delete(key)));
+      }
+      if ("serviceWorker" in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map((reg) => reg.unregister()));
+      }
+    } catch (err) {
+      console.warn("Cache/service worker cleanup failed:", err);
+    }
+
+    // A plain reload() can still be served from the browser's HTTP cache.
+    // Navigating to a URL with a unique query string forces a real network
+    // fetch of a fresh index.html (and therefore the latest JS/CSS bundles).
+    const url = new URL(window.location.href);
+    url.searchParams.set("_refresh", Date.now().toString());
+    window.location.replace(url.toString());
+  };
+
   return (
     <div style={{ maxWidth: 640, margin: "0 auto", padding: "36px 24px 60px", width: "100%" }}>
       <h1 style={{ fontSize: 22, marginBottom: 4 }}>Settings</h1>
@@ -45,6 +71,17 @@ export default function Settings() {
             Discard Saved Plan
           </button>
         </div>
+      </section>
+
+      <section className="card" style={{ padding: 20, marginTop: 16 }}>
+        <h2 style={{ fontSize: 15, margin: "0 0 8px" }}>App updates</h2>
+        <p style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 0, marginBottom: 12 }}>
+          If a new version was deployed but the app still looks out of date, use this to force
+          your browser to fetch the latest version. Your saved plan is not affected.
+        </p>
+        <button className="btn btn-sm" onClick={handleForceRefresh}>
+          Force Refresh
+        </button>
       </section>
 
       <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 20 }}>
