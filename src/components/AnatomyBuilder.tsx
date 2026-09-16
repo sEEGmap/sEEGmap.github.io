@@ -4,7 +4,7 @@ import { useStore } from "../store/useStore";
 import type { AnatomyRecord, Point } from "../types";
 import { REF_H, REF_W } from "../lib/constants";
 
-type Draft = Omit<AnatomyRecord, "id">;
+type Draft = Omit<AnatomyRecord, "id" | "fileOrder">;
 type PickMode = "target" | "entry";
 
 const emptyDraft: Draft = {

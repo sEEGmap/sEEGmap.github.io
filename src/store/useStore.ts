@@ -116,10 +116,10 @@ interface StoreState {
   removeSketch: (id: string) => void;
 
   // actions: anatomy library
-  addAnatomyRecord: (rec: Omit<AnatomyRecord, "id">) => void;
+  addAnatomyRecord: (rec: Omit<AnatomyRecord, "id" | "fileOrder">) => void;
   updateAnatomyRecord: (id: string, patch: Partial<AnatomyRecord>) => void;
   removeAnatomyRecord: (id: string) => void;
-  replaceAnatomyLibrary: (records: Omit<AnatomyRecord, "id">[]) => void;
+  replaceAnatomyLibrary: (records: Omit<AnatomyRecord, "id" | "fileOrder">[]) => void;
 
   // actions: session / files
   newPlan: () => Promise<void>;
@@ -272,12 +272,32 @@ export const useStore = create<StoreState>((set, get) => ({
       fetch(`${base}anatomy-library.csv`).then((r) => r.text()),
     ]);
 
+    const parsed = Papa.parse<Record<string, string>>(anatomyCsvText, {
+      header: true,
+      skipEmptyLines: true,
+    });
+    // Row position in the shipped CSV, keyed by electrode code -- used both to seed
+    // fileOrder on first run and to backfill it for records already in IndexedDB.
+    const fileOrderByName = new Map<string, number>();
+    parsed.data.forEach((row, idx) => {
+      const code = (row.ElectrodeName ?? "").trim().toUpperCase();
+      if (code && !fileOrderByName.has(code)) fileOrderByName.set(code, idx);
+    });
+
     const anatomyFromDb = await db.anatomy.toArray();
     if (anatomyFromDb.length > 0) {
       // Backfill electrodeName for records saved before that field existed, so lookups
-      // below never crash on `undefined.trim()`.
-      const needsBackfill = anatomyFromDb.some((a) => a.electrodeName === undefined || a.electrodeName === null);
-      const normalized = anatomyFromDb.map((a) => ({ ...a, electrodeName: a.electrodeName ?? "" }));
+      // below never crash on `undefined.trim()`. Also backfill fileOrder for records
+      // saved before it existed (or unmatched against the current CSV) using their
+      // existing array position, so the Library list has a stable order either way.
+      const needsBackfill = anatomyFromDb.some(
+        (a) => a.electrodeName === undefined || a.electrodeName === null || a.fileOrder === undefined
+      );
+      const normalized = anatomyFromDb.map((a, idx) => {
+        const electrodeName = a.electrodeName ?? "";
+        const fileOrder = a.fileOrder ?? fileOrderByName.get(electrodeName.trim().toUpperCase()) ?? idx;
+        return { ...a, electrodeName, fileOrder };
+      });
       if (needsBackfill) {
         await db.anatomy.bulkPut(normalized);
       }
@@ -286,11 +306,7 @@ export const useStore = create<StoreState>((set, get) => ({
     }
 
     // parse the seed CSV on first run and persist into IndexedDB
-    const parsed = Papa.parse<Record<string, string>>(anatomyCsvText, {
-      header: true,
-      skipEmptyLines: true,
-    });
-    const records: AnatomyRecord[] = parsed.data.map((row) => ({
+    const records: AnatomyRecord[] = parsed.data.map((row, idx) => ({
       id: uuid(),
       targetName: row.TargetName ?? "",
       preferredEntry: row.PreferredEntry ?? "",
@@ -301,6 +317,7 @@ export const useStore = create<StoreState>((set, get) => ({
       category: row.Category ?? "",
       comments: row.Comments ?? "",
       electrodeName: row.ElectrodeName ?? "",
+      fileOrder: idx,
     }));
     await db.anatomy.bulkAdd(records);
     set({ regions, siRegions, anatomy: records });
@@ -653,7 +670,8 @@ export const useStore = create<StoreState>((set, get) => ({
 
   addAnatomyRecord: (rec) => {
     const s = get();
-    const record: AnatomyRecord = { ...rec, id: uuid() };
+    // New manual entries go after everything already loaded from the file.
+    const record: AnatomyRecord = { ...rec, id: uuid(), fileOrder: s.anatomy.length };
     const updated = [...s.anatomy, record];
     set({ anatomy: updated });
     void db.anatomy.put(record);
@@ -674,7 +692,8 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   replaceAnatomyLibrary: (records) => {
-    const withIds: AnatomyRecord[] = records.map((r) => ({ ...r, id: uuid() }));
+    // Imported/replaced order becomes the new file order.
+    const withIds: AnatomyRecord[] = records.map((r, idx) => ({ ...r, id: uuid(), fileOrder: idx }));
     set({ anatomy: withIds });
     void db.anatomy.clear().then(() => db.anatomy.bulkAdd(withIds));
   },

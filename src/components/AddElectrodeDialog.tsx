@@ -200,7 +200,18 @@ function ByAnatomyTab({ onDone }: { onDone: () => void }) {
   );
 }
 
-type LibrarySortKey = "electrodeName" | "preferredEntry" | "targetName";
+type LibrarySortKey = "library" | "electrodeName" | "preferredEntry" | "targetName";
+
+// "Library order" groups rows by hemisphere (Left, then Right, then anything
+// without an L/R prefix), and within each hemisphere puts S-I electrodes
+// before orthogonal ones -- otherwise preserving the order rows already have
+// (anatomy-library.csv order for orthogonal rows, siRegions order for S-I rows).
+function hemisphereRank(electrodeName: string): number {
+  const name = electrodeName.trim().toUpperCase();
+  if (name.startsWith("L")) return 0;
+  if (name.startsWith("R")) return 1;
+  return 2;
+}
 
 function SortHeader({
   label,
@@ -243,6 +254,7 @@ type LibraryRow = {
   electrodeName: string;
   preferredEntry: string;
   targetName: string;
+  fileOrder: number;
 };
 
 function LibraryTab({ onDone }: { onDone: () => void }) {
@@ -252,7 +264,7 @@ function LibraryTab({ onDone }: { onDone: () => void }) {
   const addByName = useStore((s) => s.addByName);
   const addByAnatomy = useStore((s) => s.addByAnatomy);
   const [query, setQuery] = useState("");
-  const [sortKey, setSortKey] = useState<LibrarySortKey>("electrodeName");
+  const [sortKey, setSortKey] = useState<LibrarySortKey>("library");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
@@ -265,13 +277,15 @@ function LibraryTab({ onDone }: { onDone: () => void }) {
       electrodeName: a.electrodeName || "",
       preferredEntry: a.preferredEntry || "",
       targetName: a.targetName,
+      fileOrder: a.fileOrder,
     }));
-    const siRows: LibraryRow[] = Object.entries(siRegions || {}).map(([name, anchor]) => ({
+    const siRows: LibraryRow[] = Object.entries(siRegions || {}).map(([name, anchor], idx) => ({
       id: `si:${name}`,
       kind: "si",
       electrodeName: name,
       preferredEntry: anchor.preferredEntry || "",
       targetName: anchor.targetName || "",
+      fileOrder: idx,
     }));
     return [...lmRows, ...siRows];
   }, [anatomy, siRegions]);
@@ -285,6 +299,20 @@ function LibraryTab({ onDone }: { onDone: () => void }) {
 
   const sorted = useMemo(() => {
     const list = [...rows];
+    if (sortKey === "library") {
+      // Stable sort: within equal hemisphere+kind rank, rows keep the order
+      // they already had (anatomy-library.csv order / siRegions order).
+      list.sort((a, b) => {
+        const ha = hemisphereRank(a.electrodeName);
+        const hb = hemisphereRank(b.electrodeName);
+        if (ha !== hb) return ha - hb;
+        const ka = a.kind === "si" ? 0 : 1;
+        const kb = b.kind === "si" ? 0 : 1;
+        if (ka !== kb) return ka - kb;
+        return a.fileOrder - b.fileOrder;
+      });
+      return list;
+    }
     list.sort((a, b) => {
       const av = a[sortKey] || "";
       const bv = b[sortKey] || "";
@@ -378,6 +406,15 @@ function LibraryTab({ onDone }: { onDone: () => void }) {
         <label>Filter</label>
         <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Filter by target, entry, or code" />
       </div>
+      {sortKey !== "library" && (
+        <button
+          className="btn btn-ghost btn-sm"
+          onClick={() => setSortKey("library")}
+          style={{ alignSelf: "flex-start", fontSize: 12, padding: "2px 6px" }}
+        >
+          &#8634; Back to library order
+        </button>
+      )}
 
       <div
         style={{
