@@ -6,6 +6,7 @@ import type {
   AnatomyRecord,
   BrainRegionsConfig,
   Electrode,
+  FigureId,
   FreehandSketch,
   GridElectrode,
   LateralMedialElectrode,
@@ -24,6 +25,7 @@ import {
 import { gridPositionInQuadrant, pixelToNormalized } from "../lib/coords";
 import { clampTranslation } from "../lib/geometry";
 import { defaultGridSize } from "../lib/grid";
+import { FIGURES, FIGURE_ORDER, isFigureId, loadFigurePref, saveFigurePref } from "../lib/figures";
 
 const PALETTE = [
   "#2F6F6B", "#C0392B", "#8E5AC8", "#D68910", "#2E6DA4",
@@ -37,6 +39,122 @@ function nextColor(existing: Electrode[]): string {
 function nowISO() {
   return new Date().toISOString();
 }
+
+/** Everything that is specific to one brain figure: its quadrant config, S-I config and library. */
+interface FigureLibrary {
+  regions: BrainRegionsConfig | null;
+  siRegions: SIRegionsConfig | null;
+  anatomy: AnatomyRecord[];
+}
+
+function emptyLibraries(): Record<FigureId, FigureLibrary> {
+  return {
+    legacy: { regions: null, siRegions: null, anatomy: [] },
+    v2: { regions: null, siRegions: null, anatomy: [] },
+  };
+}
+
+/**
+ * `regions`, `siRegions` and `anatomy` on the store always mirror the *active* figure's
+ * library, so placement code and the Add Electrode dialog never need to know about figures.
+ * Whenever `libraries` or `figure` changes, spread this into `set()` to keep them in sync.
+ */
+function withActive(libraries: Record<FigureId, FigureLibrary>, figure: FigureId) {
+  const lib = libraries[figure];
+  return { libraries, regions: lib.regions, siRegions: lib.siRegions, anatomy: lib.anatomy };
+}
+
+function patchLibrary(
+  set: (partial: Partial<StoreState>) => void,
+  get: () => StoreState,
+  figure: FigureId,
+  patch: Partial<FigureLibrary>
+) {
+  const s = get();
+  const libraries = { ...s.libraries, [figure]: { ...s.libraries[figure], ...patch } };
+  set(withActive(libraries, s.figure));
+}
+
+type AnatomyDraft = Omit<AnatomyRecord, "id" | "fileOrder" | "figure">;
+
+function parseAnatomyCsv(text: string): { records: AnatomyDraft[]; fileOrderByName: Map<string, number> } {
+  const parsed = Papa.parse<Record<string, string>>(text, { header: true, skipEmptyLines: true });
+  // Row position in the shipped CSV, keyed by electrode code -- used both to seed
+  // fileOrder on first run and to backfill it for records already in IndexedDB.
+  const fileOrderByName = new Map<string, number>();
+  parsed.data.forEach((row, idx) => {
+    const code = (row.ElectrodeName ?? "").trim().toUpperCase();
+    if (code && !fileOrderByName.has(code)) fileOrderByName.set(code, idx);
+  });
+  const records = parsed.data.map((row) => ({
+    targetName: row.TargetName ?? "",
+    preferredEntry: row.PreferredEntry ?? "",
+    targetX: Number(row.TargetX) || 0,
+    targetY: Number(row.TargetY) || 0,
+    entryX: Number(row.EntryX) || 0,
+    entryY: Number(row.EntryY) || 0,
+    category: row.Category ?? "",
+    comments: row.Comments ?? "",
+    electrodeName: row.ElectrodeName ?? "",
+  }));
+  return { records, fileOrderByName };
+}
+
+async function fetchShipped(file: string): Promise<Response> {
+  const res = await fetch(`${import.meta.env.BASE_URL}${file}`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Could not load ${file} (HTTP ${res.status})`);
+  return res;
+}
+
+/**
+ * Load one figure's config files and its library. A library already saved in IndexedDB wins
+ * over the shipped CSV (so in-app edits persist); otherwise the CSV seeds it on first run.
+ * A figure whose files can't be loaded degrades to an empty library instead of breaking the app.
+ */
+async function loadFigureLibrary(figure: FigureId, stored: AnatomyRecord[]): Promise<FigureLibrary> {
+  const cfg = FIGURES[figure];
+  let regions: BrainRegionsConfig;
+  let siRegions: SIRegionsConfig;
+  let csvText: string;
+  try {
+    [regions, siRegions, csvText] = await Promise.all([
+      fetchShipped(cfg.regionsFile).then((r) => r.json() as Promise<BrainRegionsConfig>),
+      fetchShipped(cfg.siRegionsFile).then((r) => r.json() as Promise<SIRegionsConfig>),
+      fetchShipped(cfg.libraryFile).then((r) => r.text()),
+    ]);
+  } catch (err) {
+    console.warn(`Could not load the ${cfg.label} configuration files.`, err);
+    return { regions: null, siRegions: null, anatomy: stored };
+  }
+
+  const { records: seed, fileOrderByName } = parseAnatomyCsv(csvText);
+
+  if (stored.length > 0) {
+    // Backfill electrodeName for records saved before that field existed, so lookups
+    // never crash on `undefined.trim()`. Also backfill fileOrder for records saved before
+    // it existed (or unmatched against the current CSV) using their existing array
+    // position, so the Library list has a stable order either way.
+    const needsBackfill = stored.some(
+      (a) => a.electrodeName === undefined || a.electrodeName === null || a.fileOrder === undefined
+    );
+    const normalized = stored.map((a, idx) => {
+      const electrodeName = a.electrodeName ?? "";
+      const fileOrder = a.fileOrder ?? fileOrderByName.get(electrodeName.trim().toUpperCase()) ?? idx;
+      return { ...a, electrodeName, fileOrder };
+    });
+    if (needsBackfill) await db.anatomy.bulkPut(normalized);
+    return { regions, siRegions, anatomy: normalized };
+  }
+
+  // Seed from the shipped CSV on first run and persist into IndexedDB.
+  const anatomy: AnatomyRecord[] = seed.map((row, idx) => ({ ...row, id: uuid(), fileOrder: idx, figure }));
+  await db.anatomy.bulkAdd(anatomy);
+  return { regions, siRegions, anatomy };
+}
+
+// loadConfigs() can be called twice at startup (React StrictMode re-runs effects in dev).
+// Sharing one in-flight promise stops two callers from both seeding an empty library.
+let configsPromise: Promise<void> | null = null;
 
 interface PlanSnapshot {
   electrodes: Electrode[];
@@ -61,7 +179,15 @@ interface HistoryBatch {
 }
 
 interface StoreState {
-  // config
+  // figure
+  /** Which brain figure the plan is drawn on. Saved with the plan. */
+  figure: FigureId;
+  /** Switch the figure. Positions are kept as-is (they're normalized 0..1 on the image). */
+  setFigure: (id: FigureId) => void;
+  /** Config + library for every figure. */
+  libraries: Record<FigureId, FigureLibrary>;
+
+  // config -- these three always mirror the ACTIVE figure's entry in `libraries`
   regions: BrainRegionsConfig | null;
   siRegions: SIRegionsConfig | null;
   anatomy: AnatomyRecord[];
@@ -135,14 +261,17 @@ interface StoreState {
   duplicateText: (id: string) => void;
   removeText: (id: string) => void;
 
-  // actions: anatomy library
-  addAnatomyRecord: (rec: Omit<AnatomyRecord, "id" | "fileOrder">) => void;
-  updateAnatomyRecord: (id: string, patch: Partial<AnatomyRecord>) => void;
-  removeAnatomyRecord: (id: string) => void;
-  replaceAnatomyLibrary: (records: Omit<AnatomyRecord, "id" | "fileOrder">[]) => void;
+  // actions: anatomy library. `figure` picks which figure's library to change; it defaults
+  // to the active figure.
+  addAnatomyRecord: (rec: Omit<AnatomyRecord, "id" | "fileOrder">, figure?: FigureId) => void;
+  updateAnatomyRecord: (id: string, patch: Partial<AnatomyRecord>, figure?: FigureId) => void;
+  removeAnatomyRecord: (id: string, figure?: FigureId) => void;
+  replaceAnatomyLibrary: (records: Omit<AnatomyRecord, "id" | "fileOrder">[], figure?: FigureId) => void;
+  /** Re-read the shipped CSV for a figure and replace that figure's saved library with it. */
+  restoreShippedAnatomy: (figure?: FigureId) => Promise<number>;
 
   // actions: session / files
-  newPlan: () => Promise<void>;
+  newPlan: (figure?: FigureId) => Promise<void>;
   loadPlanFile: (file: SeegPlanFile) => void;
   exportPlanFile: () => SeegPlanFile;
   setPatientLabel: (v: string) => void;
@@ -173,6 +302,7 @@ function scheduleAutosave(get: () => StoreState) {
         key: "current",
         patientLabel: s.patientLabel,
         planNotes: s.planNotes,
+        figure: s.figure,
         updatedAt: nowISO(),
       });
     });
@@ -180,6 +310,8 @@ function scheduleAutosave(get: () => StoreState) {
 }
 
 export const useStore = create<StoreState>((set, get) => ({
+  figure: loadFigurePref(),
+  libraries: emptyLibraries(),
   regions: null,
   siRegions: null,
   anatomy: [],
@@ -340,63 +472,40 @@ export const useStore = create<StoreState>((set, get) => ({
     scheduleAutosave(get);
   },
 
-  loadConfigs: async () => {
-    const base = import.meta.env.BASE_URL;
-    const [regions, siRegions, anatomyCsvText] = await Promise.all([
-      fetch(`${base}brain-regions.json`).then((r) => r.json()),
-      fetch(`${base}superior-inferior-regions.json`).then((r) => r.json()),
-      fetch(`${base}anatomy-library.csv`).then((r) => r.text()),
-    ]);
+  setFigure: (id) => {
+    const s = get();
+    if (id === s.figure || !isFigureId(id)) return;
+    saveFigurePref(id);
+    set({ figure: id, ...withActive(s.libraries, id) });
+    scheduleAutosave(get);
+  },
 
-    const parsed = Papa.parse<Record<string, string>>(anatomyCsvText, {
-      header: true,
-      skipEmptyLines: true,
-    });
-    // Row position in the shipped CSV, keyed by electrode code -- used both to seed
-    // fileOrder on first run and to backfill it for records already in IndexedDB.
-    const fileOrderByName = new Map<string, number>();
-    parsed.data.forEach((row, idx) => {
-      const code = (row.ElectrodeName ?? "").trim().toUpperCase();
-      if (code && !fileOrderByName.has(code)) fileOrderByName.set(code, idx);
-    });
+  loadConfigs: () => {
+    if (!configsPromise) {
+      configsPromise = (async () => {
+        // One read of the whole table; records saved before figures existed are the legacy library.
+        const allStored = await db.anatomy.toArray();
+        const needsFigureStamp = allStored.some((a) => !isFigureId(a.figure));
+        const stamped: AnatomyRecord[] = allStored.map((a) =>
+          isFigureId(a.figure) ? a : { ...a, figure: "legacy" as FigureId }
+        );
+        if (needsFigureStamp) await db.anatomy.bulkPut(stamped);
 
-    const anatomyFromDb = await db.anatomy.toArray();
-    if (anatomyFromDb.length > 0) {
-      // Backfill electrodeName for records saved before that field existed, so lookups
-      // below never crash on `undefined.trim()`. Also backfill fileOrder for records
-      // saved before it existed (or unmatched against the current CSV) using their
-      // existing array position, so the Library list has a stable order either way.
-      const needsBackfill = anatomyFromDb.some(
-        (a) => a.electrodeName === undefined || a.electrodeName === null || a.fileOrder === undefined
-      );
-      const normalized = anatomyFromDb.map((a, idx) => {
-        const electrodeName = a.electrodeName ?? "";
-        const fileOrder = a.fileOrder ?? fileOrderByName.get(electrodeName.trim().toUpperCase()) ?? idx;
-        return { ...a, electrodeName, fileOrder };
+        const loaded = await Promise.all(
+          FIGURE_ORDER.map(async (id) => [id, await loadFigureLibrary(id, stamped.filter((a) => a.figure === id))] as const)
+        );
+        const libraries = emptyLibraries();
+        loaded.forEach(([id, lib]) => {
+          libraries[id] = lib;
+        });
+        // Read the figure *now*: hydrateFromDB may have switched it while the files loaded.
+        set(withActive(libraries, get().figure));
+      })().catch((err) => {
+        configsPromise = null;
+        throw err;
       });
-      if (needsBackfill) {
-        await db.anatomy.bulkPut(normalized);
-      }
-      set({ regions, siRegions, anatomy: normalized });
-      return;
     }
-
-    // parse the seed CSV on first run and persist into IndexedDB
-    const records: AnatomyRecord[] = parsed.data.map((row, idx) => ({
-      id: uuid(),
-      targetName: row.TargetName ?? "",
-      preferredEntry: row.PreferredEntry ?? "",
-      targetX: Number(row.TargetX) || 0,
-      targetY: Number(row.TargetY) || 0,
-      entryX: Number(row.EntryX) || 0,
-      entryY: Number(row.EntryY) || 0,
-      category: row.Category ?? "",
-      comments: row.Comments ?? "",
-      electrodeName: row.ElectrodeName ?? "",
-      fileOrder: idx,
-    }));
-    await db.anatomy.bulkAdd(records);
-    set({ regions, siRegions, anatomy: records });
+    return configsPromise;
   },
 
   hydrateFromDB: async () => {
@@ -406,6 +515,11 @@ export const useStore = create<StoreState>((set, get) => ({
       db.texts.toArray(),
       db.session.get("current"),
     ]);
+    // A saved session remembers its figure. Sessions saved before figures existed have no
+    // figure field and were all made on the legacy figure. With no session at all, keep the
+    // figure already chosen (the saved preference, or the default).
+    const hasData = electrodes.length > 0 || sketches.length > 0 || texts.length > 0;
+    const figure: FigureId = session ? (isFigureId(session.figure) ? session.figure : "legacy") : hasData ? "legacy" : get().figure;
     set({
       electrodes,
       sketches,
@@ -413,6 +527,8 @@ export const useStore = create<StoreState>((set, get) => ({
       patientLabel: session?.patientLabel ?? "",
       planNotes: session?.planNotes ?? "",
       hydrated: true,
+      figure,
+      ...withActive(get().libraries, figure),
     });
   },
 
@@ -863,45 +979,67 @@ export const useStore = create<StoreState>((set, get) => ({
     scheduleAutosave(get);
   },
 
-  addAnatomyRecord: (rec) => {
+  addAnatomyRecord: (rec, figure) => {
     const s = get();
+    const fig = figure ?? s.figure;
+    const lib = s.libraries[fig];
     // New manual entries go after everything already loaded from the file.
-    const record: AnatomyRecord = { ...rec, id: uuid(), fileOrder: s.anatomy.length };
-    const updated = [...s.anatomy, record];
-    set({ anatomy: updated });
+    const record: AnatomyRecord = { ...rec, id: uuid(), fileOrder: lib.anatomy.length, figure: fig };
+    patchLibrary(set, get, fig, { anatomy: [...lib.anatomy, record] });
     void db.anatomy.put(record);
   },
 
-  updateAnatomyRecord: (id, patch) => {
+  updateAnatomyRecord: (id, patch, figure) => {
     const s = get();
-    const updated = s.anatomy.map((a) => (a.id === id ? { ...a, ...patch } : a));
-    set({ anatomy: updated });
+    const fig = figure ?? s.figure;
+    const updated = s.libraries[fig].anatomy.map((a) => (a.id === id ? { ...a, ...patch, id: a.id, figure: fig } : a));
+    patchLibrary(set, get, fig, { anatomy: updated });
     const rec = updated.find((a) => a.id === id);
     if (rec) void db.anatomy.put(rec);
   },
 
-  removeAnatomyRecord: (id) => {
+  removeAnatomyRecord: (id, figure) => {
     const s = get();
-    set({ anatomy: s.anatomy.filter((a) => a.id !== id) });
+    const fig = figure ?? s.figure;
+    patchLibrary(set, get, fig, { anatomy: s.libraries[fig].anatomy.filter((a) => a.id !== id) });
     void db.anatomy.delete(id);
   },
 
-  replaceAnatomyLibrary: (records) => {
+  replaceAnatomyLibrary: (records, figure) => {
+    const fig = figure ?? get().figure;
     // Imported/replaced order becomes the new file order.
-    const withIds: AnatomyRecord[] = records.map((r, idx) => ({ ...r, id: uuid(), fileOrder: idx }));
-    set({ anatomy: withIds });
-    void db.anatomy.clear().then(() => db.anatomy.bulkAdd(withIds));
+    const withIds: AnatomyRecord[] = records.map((r, idx) => ({ ...r, id: uuid(), fileOrder: idx, figure: fig }));
+    patchLibrary(set, get, fig, { anatomy: withIds });
+    // Only this figure's rows are replaced; the other figure's library is left alone.
+    void db.transaction("rw", db.anatomy, async () => {
+      await db.anatomy.filter((a) => (a.figure ?? "legacy") === fig).delete();
+      await db.anatomy.bulkAdd(withIds);
+    });
   },
 
-  newPlan: async () => {
+  restoreShippedAnatomy: async (figure) => {
+    const fig = figure ?? get().figure;
+    const res = await fetchShipped(FIGURES[fig].libraryFile);
+    const { records } = parseAnatomyCsv(await res.text());
+    get().replaceAnatomyLibrary(records, fig);
+    return records.length;
+  },
+
+  newPlan: async (figure) => {
+    const fig = figure && isFigureId(figure) ? figure : get().figure;
+    if (figure && isFigureId(figure)) saveFigurePref(fig);
     await db.transaction("rw", db.electrodes, db.session, db.sketches, db.texts, async () => {
       await db.electrodes.clear();
       await db.sketches.clear();
       await db.texts.clear();
       await db.session.clear();
+      // Keep the chosen figure even if the page is reloaded before the first autosave.
+      await db.session.put({ key: "current", patientLabel: "", planNotes: "", figure: fig, updatedAt: nowISO() });
     });
     historyBatch = null;
     set({
+      figure: fig,
+      ...withActive(get().libraries, fig),
       electrodes: [],
       sketches: [],
       texts: [],
@@ -917,7 +1055,11 @@ export const useStore = create<StoreState>((set, get) => ({
 
   loadPlanFile: (file) => {
     historyBatch = null;
+    // Files written before figures existed have no figure field: they are legacy-figure plans.
+    const figure: FigureId = isFigureId(file.figure) ? file.figure : "legacy";
     set({
+      figure,
+      ...withActive(get().libraries, figure),
       electrodes: file.electrodes,
       sketches: file.sketches ?? [],
       texts: file.texts ?? [],
@@ -944,6 +1086,7 @@ export const useStore = create<StoreState>((set, get) => ({
       electrodes: s.electrodes,
       sketches: s.sketches,
       texts: s.texts,
+      figure: s.figure,
     };
     return file;
   },

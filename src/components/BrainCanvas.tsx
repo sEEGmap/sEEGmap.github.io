@@ -1,7 +1,9 @@
 import { useCallback, useRef, useState } from "react";
 import { useStore } from "../store/useStore";
 import type { Electrode, FreehandSketch, GridElectrode, Point, TextAnnotation } from "../types";
-import { REF_H, REF_W } from "../lib/constants";
+import { REF_W } from "../lib/constants";
+import { figureImageUrl } from "../lib/figures";
+import { useCanvasHeight } from "../lib/useFigure";
 import { darkenHex } from "../lib/color";
 import { centroid, clampTranslation } from "../lib/geometry";
 import {
@@ -54,6 +56,9 @@ export default function BrainCanvas() {
   const updateText = useStore((s) => s.updateText);
   const selectedTextId = useStore((s) => s.selectedTextId);
   const setSelectedTextId = useStore((s) => s.setSelectedTextId);
+  const figure = useStore((s) => s.figure);
+  // Canvas is REF_W wide for every figure; its height follows the active figure's aspect ratio.
+  const REF_H = useCanvasHeight();
 
   const svgRef = useRef<SVGSVGElement>(null);
   const dragRef = useRef<DragTarget | null>(null);
@@ -83,7 +88,7 @@ export default function BrainCanvas() {
       const n = clientToNormalized(clientX, clientY);
       return { x: n.x * REF_W, y: n.y * REF_H };
     },
-    [clientToNormalized]
+    [clientToNormalized, REF_H]
   );
 
   const onMarkerPointerMove = useCallback(
@@ -129,14 +134,14 @@ export default function BrainCanvas() {
 
       if (target.kind === "grid-resize") {
         // Shift keeps the array's current aspect ratio while resizing.
-        updateElectrode(grid.id, resizeFromCorner(grid, target.corner, p, e.shiftKey) as Partial<Electrode>);
+        updateElectrode(grid.id, resizeFromCorner(grid, target.corner, p, REF_H, e.shiftKey) as Partial<Electrode>);
         return;
       }
 
       // grid-rotate: Shift snaps to 15-degree increments.
-      updateElectrode(grid.id, { rotation: rotationFromPointer(grid, p, e.shiftKey) } as Partial<Electrode>);
+      updateElectrode(grid.id, { rotation: rotationFromPointer(grid, p, REF_H, e.shiftKey) } as Partial<Electrode>);
     },
-    [clientToNormalized, clientToPixels, updateElectrode, updateText]
+    [clientToNormalized, clientToPixels, updateElectrode, updateText, REF_H]
   );
 
   const startDrag = (e: React.PointerEvent, target: DragTarget) => {
@@ -159,13 +164,13 @@ export default function BrainCanvas() {
   /** Dragging anywhere on the array body (or on a contact) moves the whole array. */
   const startGridBodyDrag = (e: React.PointerEvent, grid: GridElectrode) => {
     const p = clientToPixels(e.clientX, e.clientY);
-    const c = toPixels(grid.center);
+    const c = toPixels(grid.center, REF_H);
     startDrag(e, { kind: "grid-move", electrodeId: grid.id, grab: { x: p.x - c.x, y: p.y - c.y } });
   };
 
   const startTextDrag = (e: React.PointerEvent, text: TextAnnotation) => {
     const p = clientToPixels(e.clientX, e.clientY);
-    const anchor = toPixels(text.position);
+    const anchor = toPixels(text.position, REF_H);
     startDrag(e, { kind: "text-move", textId: text.id, grab: { x: p.x - anchor.x, y: p.y - anchor.y } });
   };
 
@@ -306,7 +311,7 @@ export default function BrainCanvas() {
           cursor: placementMode ? "crosshair" : "default",
         }}
       >
-        <image href="./brain-template.png" x={0} y={0} width={REF_W} height={REF_H} />
+        <image href={figureImageUrl(figure)} x={0} y={0} width={REF_W} height={REF_H} />
 
         {/* quadrant labels */}
         <QuadLabel x={REF_W * 0.02} y={REF_H * 0.045} text="Left Lateral" />
@@ -399,6 +404,7 @@ function SketchShape({
   onPointerDown: (e: React.PointerEvent) => void;
   onClick: () => void;
 }) {
+  const REF_H = useCanvasHeight();
   const pts = sketch.points.map((p) => `${p.x * REF_W},${p.y * REF_H}`).join(" ");
   const c = centroid(sketch.points);
   return (
@@ -556,13 +562,14 @@ function GridArray({
   onStartResize: (e: React.PointerEvent, corner: number) => void;
   onStartRotate: (e: React.PointerEvent) => void;
 }) {
-  const corners = gridCorners(grid);
-  const contacts = gridContacts(grid);
+  const REF_H = useCanvasHeight();
+  const corners = gridCorners(grid, REF_H);
+  const contacts = gridContacts(grid, REF_H);
   const r = contactRadiusPx(grid);
   const { h } = gridSizePx(grid);
-  const handle = rotationHandlePx(grid);
-  const topMid = localToPixels(grid, 0, -h / 2);
-  const labelPos = localToPixels(grid, 0, -h / 2 - 18);
+  const handle = rotationHandlePx(grid, REF_H);
+  const topMid = localToPixels(grid, 0, -h / 2, REF_H);
+  const labelPos = localToPixels(grid, 0, -h / 2 - 18, REF_H);
   const handleR = 11;
   const cornerR = 9;
 
@@ -680,6 +687,7 @@ function TextMark({
   onClick: () => void;
   onDoubleClick: () => void;
 }) {
+  const REF_H = useCanvasHeight();
   const x = text.position.x * REF_W;
   const y = text.position.y * REF_H;
   const lines = text.content.split("\n");
@@ -733,6 +741,7 @@ function TextMark({
 }
 
 function NameLabel({ point, text, color, dy }: { point: Point; text: string; color: string; dy: number }) {
+  const REF_H = useCanvasHeight();
   return (
     <text
       x={point.x * REF_W}
@@ -765,6 +774,7 @@ function EntryDot({
   r: number;
   onPointerDown: (e: React.PointerEvent) => void;
 }) {
+  const REF_H = useCanvasHeight();
   return (
     <circle
       cx={point.x * REF_W}
@@ -792,6 +802,7 @@ function TargetX({
   r: number;
   onPointerDown: (e: React.PointerEvent) => void;
 }) {
+  const REF_H = useCanvasHeight();
   const cx = point.x * REF_W;
   const cy = point.y * REF_H;
   const armWidth = strokeW + 4.5; // bold, short arms
@@ -807,6 +818,7 @@ function TargetX({
 }
 
 function TrajectoryLine({ a, b, color, strokeW }: { a: Point; b: Point; color: string; strokeW: number }) {
+  const REF_H = useCanvasHeight();
   return (
     <line
       x1={a.x * REF_W}

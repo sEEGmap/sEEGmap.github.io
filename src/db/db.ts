@@ -1,13 +1,18 @@
 import Dexie, { type Table } from "dexie";
-import type { AnatomyRecord, Electrode, FreehandSketch, TextAnnotation } from "../types";
+import type { AnatomyRecord, Electrode, FigureId, FreehandSketch, TextAnnotation } from "../types";
 
 export interface SessionMeta {
   key: string; // fixed key "current"
   patientLabel: string;
   planNotes: string;
+  /** Figure the plan is drawn on. Missing on sessions saved before figures existed = "legacy". */
+  figure?: FigureId;
   updatedAt: string;
 }
 
+// Note: `anatomy` holds the libraries for *every* figure. Records carry a `figure` field
+// (missing = "legacy"); it isn't indexed because the whole table is small and is loaded and
+// filtered in memory, so no schema version bump is needed.
 class SeegMapDB extends Dexie {
   electrodes!: Table<Electrode, string>;
   anatomy!: Table<AnatomyRecord, string>;
@@ -56,6 +61,13 @@ export async function hasStoredSession(): Promise<boolean> {
     db.texts.count(),
   ]);
   return electrodeCount > 0 || sketchCount > 0 || textCount > 0;
+}
+
+/** Figure the stored session was made on, or null when no session is stored. */
+export async function getStoredSessionFigure(): Promise<FigureId | null> {
+  const session = await db.session.get("current");
+  if (!session) return null;
+  return session.figure ?? "legacy";
 }
 
 export async function clearSession(): Promise<void> {

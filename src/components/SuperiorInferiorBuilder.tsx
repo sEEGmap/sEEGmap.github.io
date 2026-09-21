@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useStore } from "../store/useStore";
-import type { Point, SIAnchor } from "../types";
-import { REF_H, REF_W } from "../lib/constants";
+import type { FigureId, Point, SIAnchor } from "../types";
+import { FIGURES, figureImageUrl, figureUnit } from "../lib/figures";
 
 type PickMode = "lateralStart" | "lateralEnd";
 
@@ -10,17 +10,29 @@ const PICK_LABELS: Record<PickMode, string> = {
   lateralEnd: "Inferior",
 };
 
-const emptyDraft: SIAnchor = {
-  lateralStart: [REF_W * 0.2, REF_H * 0.1],
-  lateralEnd: [REF_W * 0.2, REF_H * 0.25],
-  preferredEntry: "",
-  targetName: "",
-};
+// Coordinates here are in the native pixel space of the figure being edited.
+function makeEmptyDraft(figure: FigureId): SIAnchor {
+  const { width, height } = FIGURES[figure];
+  return {
+    lateralStart: [width * 0.2, height * 0.1],
+    lateralEnd: [width * 0.2, height * 0.25],
+    preferredEntry: "",
+    targetName: "",
+  };
+}
 
+// The legacy config keeps its original storage key so any queue already in progress survives.
 const STORAGE_KEY = "seegmap-si-builder-changes";
+const storageKey = (figure: FigureId) => (figure === "legacy" ? STORAGE_KEY : `${STORAGE_KEY}-${figure}`);
 
-export default function SuperiorInferiorBuilder() {
-  const siRegions = useStore((s) => s.siRegions);
+/** Edits one figure's S-I config. Remount (key={figure}) when the figure changes. */
+export default function SuperiorInferiorBuilder({ figure }: { figure: FigureId }) {
+  const cfg = FIGURES[figure];
+  const REF_W = cfg.width;
+  const REF_H = cfg.height;
+  const unit = figureUnit(figure); // marker sizes below were designed at legacy scale
+  const emptyDraft = useMemo(() => makeEmptyDraft(figure), [figure]);
+  const siRegions = useStore((s) => s.libraries[figure].siRegions);
 
   const [name, setName] = useState("");
   const [draft, setDraft] = useState<SIAnchor>(emptyDraft);
@@ -30,7 +42,7 @@ export default function SuperiorInferiorBuilder() {
   const [status, setStatus] = useState("");
   const [queued, setQueued] = useState<Record<string, SIAnchor>>(() => {
     try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
+      const raw = window.localStorage.getItem(storageKey(figure));
       return raw ? (JSON.parse(raw) as Record<string, SIAnchor>) : {};
     } catch {
       return {};
@@ -40,7 +52,7 @@ export default function SuperiorInferiorBuilder() {
   const persistQueue = (next: Record<string, SIAnchor>) => {
     setQueued(next);
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      window.localStorage.setItem(storageKey(figure), JSON.stringify(next));
     } catch {
       // Local persistence is best-effort; the current session still tracks the queue.
     }
@@ -138,11 +150,11 @@ export default function SuperiorInferiorBuilder() {
       setStatus("No builder entries are queued for export yet.");
       return;
     }
-    downloadBlob(JSON.stringify(queued, null, 2), "superior-inferior-regions-builder-updates.json", "application/json");
-    setStatus(`Exported ${keys.length} entr${keys.length === 1 ? "y" : "ies"}. Merge these keys into public/superior-inferior-regions.json manually.`);
+    downloadBlob(JSON.stringify(queued, null, 2), `${cfg.siRegionsFile.replace(/\.json$/, "")}-builder-updates.json`, "application/json");
+    setStatus(`Exported ${keys.length} entr${keys.length === 1 ? "y" : "ies"}. Merge these keys into public/${cfg.siRegionsFile} manually.`);
   };
 
-  const imageHref = `${import.meta.env.BASE_URL}brain-template.png`;
+  const imageHref = figureImageUrl(figure);
   const queuedCount = Object.keys(queued).length;
 
   return (
@@ -154,7 +166,7 @@ export default function SuperiorInferiorBuilder() {
             Click-to-build tool for superior-to-inferior electrodes (e.g. <span className="mono">LAI</span>,{" "}
             <span className="mono">RPF</span>). Place the lateral superior/inferior points (superior = dot,
             inferior = X), optionally add a preferred entry/target label, then export the queue as JSON to
-            merge into <span className="mono">public/superior-inferior-regions.json</span> by hand.
+            merge into <span className="mono">public/{cfg.siRegionsFile}</span> by hand ({cfg.label.toLowerCase()}).
           </p>
         </div>
         <div style={{ display: "flex", gap: 7 }}>
@@ -269,12 +281,12 @@ export default function SuperiorInferiorBuilder() {
               <line
                 x1={draft.lateralStart[0]} y1={draft.lateralStart[1]}
                 x2={draft.lateralEnd[0]} y2={draft.lateralEnd[1]}
-                stroke="var(--accent)" strokeWidth={4}
+                stroke="var(--accent)" strokeWidth={4 * unit}
               />
-              <circle cx={draft.lateralStart[0]} cy={draft.lateralStart[1]} r={11} fill="var(--accent)" stroke="#fff" strokeWidth={3} />
-              <XMark x={draft.lateralEnd[0]} y={draft.lateralEnd[1]} />
-              <text x={draft.lateralStart[0] + 15} y={draft.lateralStart[1] - 10} fontSize={16} fontWeight={700} fill="var(--accent)" stroke="#fff" strokeWidth={4} paintOrder="stroke">SUPERIOR</text>
-              <text x={draft.lateralEnd[0] + 15} y={draft.lateralEnd[1] - 10} fontSize={16} fontWeight={700} fill="var(--accent)" stroke="#fff" strokeWidth={4} paintOrder="stroke">INFERIOR</text>
+              <circle cx={draft.lateralStart[0]} cy={draft.lateralStart[1]} r={11 * unit} fill="var(--accent)" stroke="#fff" strokeWidth={3 * unit} />
+              <XMark x={draft.lateralEnd[0]} y={draft.lateralEnd[1]} unit={unit} />
+              <text x={draft.lateralStart[0] + 15 * unit} y={draft.lateralStart[1] - 10 * unit} fontSize={16 * unit} fontWeight={700} fill="var(--accent)" stroke="#fff" strokeWidth={4 * unit} paintOrder="stroke">SUPERIOR</text>
+              <text x={draft.lateralEnd[0] + 15 * unit} y={draft.lateralEnd[1] - 10 * unit} fontSize={16 * unit} fontWeight={700} fill="var(--accent)" stroke="#fff" strokeWidth={4 * unit} paintOrder="stroke">INFERIOR</text>
             </svg>
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, fontSize: 11, color: "var(--muted)" }}>
@@ -310,12 +322,13 @@ export default function SuperiorInferiorBuilder() {
   );
 }
 
-function XMark({ x, y }: { x: number; y: number }) {
-  // Change 11 below to adjust the Click-to-Build X-marker size.
+function XMark({ x, y, unit }: { x: number; y: number; unit: number }) {
+  // Change 11 below to adjust the Click-to-Build X-marker size (scaled per figure by `unit`).
+  const r = 11 * unit;
   return (
     <>
-      <line x1={x - 11} y1={y - 11} x2={x + 11} y2={y + 11} stroke="var(--danger)" strokeWidth={5} />
-      <line x1={x - 11} y1={y + 11} x2={x + 11} y2={y - 11} stroke="var(--danger)" strokeWidth={5} />
+      <line x1={x - r} y1={y - r} x2={x + r} y2={y + r} stroke="var(--danger)" strokeWidth={5 * unit} />
+      <line x1={x - r} y1={y + r} x2={x + r} y2={y - r} stroke="var(--danger)" strokeWidth={5 * unit} />
     </>
   );
 }

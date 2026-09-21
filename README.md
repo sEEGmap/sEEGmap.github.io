@@ -145,6 +145,33 @@ hemisphere. It refuses if the mirrored name is already in your plan. Free-form l
 markers named e.g. `LLESA`, `LLESB`, … auto-increment the trailing letter per side so you
 don't have to track which suffixes are already in use.
 
+## Brain figures (legacy and new)
+
+sEEGmap ships two brain figures, selectable per plan:
+
+- **Legacy** — `brain-template.png` (1770 × 1281 px)
+- **New** — `brain-template-v2.png` (3147 × 1903 px)
+
+Pick the figure for a new plan on Home; switch any time from the **Figure** toggle in the
+planner. Electrode positions are stored as fractions of the image, so they keep their relative
+position when you switch (the figures are not anatomically aligned, so re-check placement).
+The figure is saved with the plan (`figure` in `.seegmap`); files without it open as legacy.
+
+Each figure has its own files in `public/`, with coordinates in that figure's native pixels:
+
+| | Legacy | New |
+| --- | --- | --- |
+| Image | `brain-template.png` | `brain-template-v2.png` |
+| Quadrants | `brain-regions.json` | `brain-regions-v2.json` |
+| Anatomical library | `anatomy-library.csv` | `anatomy-library-v2.csv` |
+| Superior–inferior | `superior-inferior-regions.json` | `superior-inferior-regions-v2.json` |
+
+The v2 data files were produced by scaling the legacy coordinates (x × 3147/1770, y × 1903/1281)
+and need hand-tuning. Settings → Anatomical Library has a "Library for" picker that switches the
+list, import/export and both click-to-build tools between the two libraries. A library edited in
+the browser is kept in IndexedDB and wins over the shipped CSV; use **Reset to shipped** to reload
+the CSV after you change it.
+
 ## Configuration files (`public/`)
 
 These drive the app without needing a rebuild for content changes (only a redeploy):

@@ -6,7 +6,11 @@ import { exportWorkspacePng } from "../lib/export/png";
 import { exportWorkspacePdf } from "../lib/export/pdf";
 import { exportWorkspacePptx } from "../lib/export/pptx";
 import { saveSeegmapFile } from "../lib/export/seegmap";
-import { REF_H, REF_W } from "../lib/constants";
+import { REF_W } from "../lib/constants";
+import { FIGURES } from "../lib/figures";
+import FigureSegmented from "../components/FigureSegmented";
+import { useCanvasHeight } from "../lib/useFigure";
+import type { FigureId } from "../types";
 
 export default function Planner() {
   const electrodes = useStore((s) => s.electrodes);
@@ -39,6 +43,8 @@ export default function Planner() {
   const selectedSketchId = useStore((s) => s.selectedSketchId);
   const setSelected = useStore((s) => s.setSelected);
   const setSelectedSketchId = useStore((s) => s.setSelectedSketchId);
+  const figure = useStore((s) => s.figure);
+  const REF_H = useCanvasHeight();
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -87,6 +93,7 @@ export default function Planner() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [
     nudgeSelection,
+    REF_H,
     redo,
     selectedId,
     selectedSketchId,
@@ -138,6 +145,7 @@ export default function Planner() {
         });
       } else {
         await exportWorkspacePptx({
+          figure,
           electrodes,
           sketches,
           texts,
@@ -192,6 +200,7 @@ export default function Planner() {
           <ToggleButton active={showNames} onClick={toggleShowNames}>
             Show Names
           </ToggleButton>
+          <FigureToggle />
           <ToggleButton active={drawMode} onClick={() => setDrawMode(!drawMode)}>
             ✏️ Draw Area
           </ToggleButton>
@@ -321,6 +330,36 @@ export default function Planner() {
       <div style={{ width: panelWidth, flexShrink: 0, borderLeft: "1px solid var(--line)", background: "var(--surface)" }}>
         <ElectrodePanel />
       </div>
+    </div>
+  );
+}
+
+/** Switch between the brain figures. Each plan remembers which figure it was made on. */
+function FigureToggle() {
+  const figure = useStore((s) => s.figure);
+  const setFigure = useStore((s) => s.setFigure);
+  const hasContent = useStore((s) => s.electrodes.length + s.sketches.length + s.texts.length > 0);
+
+  const choose = (id: FigureId) => {
+    if (id === figure) return;
+    if (
+      hasContent &&
+      !window.confirm(
+        `Switch to the ${FIGURES[id].label.toLowerCase()}?\n\n` +
+          "Your electrodes, areas and text keep the same relative positions on the image, but the two " +
+          "figures are drawn differently, so markers will not sit on the same anatomy. Review their " +
+          "placement after switching. You can switch back at any time."
+      )
+    ) {
+      return;
+    }
+    setFigure(id);
+  };
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 6 }} title="Brain figure used for this plan">
+      <span style={{ fontSize: 12, color: "var(--muted)" }}>Figure</span>
+      <FigureSegmented value={figure} onChange={choose} />
     </div>
   );
 }

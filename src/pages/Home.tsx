@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useStore } from "../store/useStore";
-import { hasStoredSession, clearSession } from "../db/db";
-import type { AppConfig, SeegPlanFile } from "../types";
+import { hasStoredSession, clearSession, getStoredSessionFigure } from "../db/db";
+import type { AppConfig, FigureId, SeegPlanFile } from "../types";
+import { FIGURES, loadFigurePref } from "../lib/figures";
+import FigureSegmented from "../components/FigureSegmented";
 import Mark from "../components/Mark";
 
 export default function Home() {
@@ -15,6 +17,9 @@ export default function Home() {
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [sessionFound, setSessionFound] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
+  // Figure for a *new* plan. Restoring or importing a plan always uses the figure it was made on.
+  const [newFigure, setNewFigure] = useState<FigureId>(() => loadFigurePref());
+  const [sessionFigure, setSessionFigure] = useState<FigureId | null>(null);
 
   useEffect(() => {
     const base = import.meta.env.BASE_URL;
@@ -23,6 +28,7 @@ export default function Home() {
       .then(setConfig)
       .catch(() => setConfig(null));
     hasStoredSession().then(setSessionFound);
+    getStoredSessionFigure().then(setSessionFigure);
   }, []);
 
   const handleNewPlan = async () => {
@@ -32,7 +38,7 @@ export default function Home() {
       );
       if (!confirmed) return;
     }
-    await newPlan();
+    await newPlan(newFigure);
     navigate("/planner");
   };
 
@@ -44,6 +50,7 @@ export default function Home() {
   const handleDiscard = async () => {
     await clearSession();
     setSessionFound(false);
+    setSessionFigure(null);
   };
 
   const handleImportClick = () => fileInputRef.current?.click();
@@ -142,6 +149,7 @@ export default function Home() {
               <strong>Previous session found.</strong>
               <div style={{ color: "var(--muted)", marginTop: 2 }}>
                 Restore it or discard to start clean.
+                {sessionFigure && <> Made on the {FIGURES[sessionFigure].label.toLowerCase()}.</>}
               </div>
             </div>
             <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
@@ -156,6 +164,10 @@ export default function Home() {
         )}
 
         <div style={{ marginTop: 22, display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 12.5, color: "var(--muted)" }}>Brain figure for a new plan</span>
+            <FigureSegmented value={newFigure} onChange={setNewFigure} full />
+          </div>
           <button className="btn btn-primary" onClick={handleNewPlan} style={{ padding: "12px 16px" }}>
             New Plan
           </button>
@@ -182,6 +194,9 @@ export default function Home() {
           {importError && (
             <div style={{ color: "var(--danger)", fontSize: 12.5 }}>{importError}</div>
           )}
+          <div style={{ color: "var(--faint)", fontSize: 11.5 }}>
+            Restoring or importing a plan uses the figure it was made on. You can switch figures later from the planner.
+          </div>
         </div>
 
         {hasContact && (

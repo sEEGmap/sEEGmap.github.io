@@ -1,26 +1,40 @@
 import { useMemo, useState } from "react";
 import Papa from "papaparse";
 import { useStore } from "../store/useStore";
-import type { AnatomyRecord, Point } from "../types";
-import { REF_H, REF_W } from "../lib/constants";
+import type { AnatomyRecord, FigureId, Point } from "../types";
+import { FIGURES, figureImageUrl, figureUnit } from "../lib/figures";
 
-type Draft = Omit<AnatomyRecord, "id" | "fileOrder">;
+type Draft = Omit<AnatomyRecord, "id" | "fileOrder" | "figure">;
 type PickMode = "target" | "entry";
 
-const emptyDraft: Draft = {
-  electrodeName: "",
-  targetName: "",
-  preferredEntry: "",
-  targetX: REF_W * 0.5,
-  targetY: REF_H * 0.5,
-  entryX: REF_W * 0.5,
-  entryY: REF_H * 0.25,
-  category: "",
-  comments: "",
-};
+// Coordinates here are in the native pixel space of the figure being edited.
+function makeEmptyDraft(figure: FigureId): Draft {
+  const { width, height } = FIGURES[figure];
+  return {
+    electrodeName: "",
+    targetName: "",
+    preferredEntry: "",
+    targetX: width * 0.5,
+    targetY: height * 0.5,
+    entryX: width * 0.5,
+    entryY: height * 0.25,
+    category: "",
+    comments: "",
+  };
+}
 
-export default function AnatomyBuilder() {
-  const anatomy = useStore((s) => s.anatomy);
+// The legacy library keeps its original storage key so any queue already in progress survives.
+const QUEUE_KEY = "seegmap-anatomy-builder-changes";
+const queueKey = (figure: FigureId) => (figure === "legacy" ? QUEUE_KEY : `${QUEUE_KEY}-${figure}`);
+
+/** Edits one figure's library. Remount (key={figure}) when the figure changes. */
+export default function AnatomyBuilder({ figure }: { figure: FigureId }) {
+  const cfg = FIGURES[figure];
+  const REF_W = cfg.width;
+  const REF_H = cfg.height;
+  const unit = figureUnit(figure); // marker sizes below were designed at legacy scale
+  const emptyDraft = useMemo(() => makeEmptyDraft(figure), [figure]);
+  const anatomy = useStore((s) => s.libraries[figure].anatomy);
   const addAnatomyRecord = useStore((s) => s.addAnatomyRecord);
   const updateAnatomyRecord = useStore((s) => s.updateAnatomyRecord);
 
@@ -30,7 +44,7 @@ export default function AnatomyBuilder() {
   const [pickMode, setPickMode] = useState<PickMode>("target");
   const [changedIds, setChangedIds] = useState<Set<string>>(() => {
     try {
-      const raw = window.localStorage.getItem("seegmap-anatomy-builder-changes");
+      const raw = window.localStorage.getItem(queueKey(figure));
       return new Set<string>(raw ? JSON.parse(raw) : []);
     } catch {
       return new Set<string>();
@@ -44,7 +58,7 @@ export default function AnatomyBuilder() {
       const next = new Set(ids);
       next.add(id);
       try {
-        window.localStorage.setItem("seegmap-anatomy-builder-changes", JSON.stringify([...next]));
+        window.localStorage.setItem(queueKey(figure), JSON.stringify([...next]));
       } catch {
         // Local persistence is best-effort; the current session still tracks the changes.
       }
@@ -149,7 +163,7 @@ export default function AnatomyBuilder() {
     }
 
     if (loadedId) {
-      updateAnatomyRecord(loadedId, record);
+      updateAnatomyRecord(loadedId, record, figure);
       markChanged(loadedId);
       setDraft(record);
       setStatus(`Updated ${record.electrodeName || record.targetName}. This record is queued for builder export.`);
@@ -157,8 +171,8 @@ export default function AnatomyBuilder() {
     }
 
     const beforeIds = new Set(anatomy.map((a) => a.id));
-    addAnatomyRecord(record);
-    const created = useStore.getState().anatomy.find((a) => !beforeIds.has(a.id));
+    addAnatomyRecord(record, figure);
+    const created = useStore.getState().libraries[figure].anatomy.find((a) => !beforeIds.has(a.id));
     if (created) {
       setLoadedId(created.id);
       markChanged(created.id);
@@ -186,11 +200,11 @@ export default function AnatomyBuilder() {
         Comments: a.comments,
       }))
     );
-    downloadBlob(csv, "anatomy-library-builder-updates.csv", "text/csv");
+    downloadBlob(csv, `${cfg.libraryFile.replace(/\.csv$/, "")}-builder-updates.csv`, "text/csv");
     setStatus(`Exported ${records.length} builder update${records.length === 1 ? "" : "s"}.`);
   };
 
-  const imageHref = `${import.meta.env.BASE_URL}brain-template.png`;
+  const imageHref = figureImageUrl(figure);
 
   return (
     <div className="card" style={{ marginTop: 18, padding: 16 }}>
@@ -198,7 +212,7 @@ export default function AnatomyBuilder() {
         <div>
           <strong style={{ fontSize: 14 }}>Anatomical Library Builder</strong>
           <p style={{ margin: "5px 0 0", fontSize: 12.5, color: "var(--muted)", lineHeight: 1.45 }}>
-            This is a calibration tool for maintaining your anatomical library. Enter an electrode already in the library to load its current record, correct it, and export every builder change together.
+            This is a calibration tool for maintaining the <strong>{cfg.label.toLowerCase()}</strong> anatomical library. Enter an electrode already in the library to load its current record, correct it, and export every builder change together (merge into <span className="mono">public/{cfg.libraryFile}</span>).
           </p>
         </div>
         <div style={{ display: "flex", gap: 7 }}>
@@ -209,7 +223,7 @@ export default function AnatomyBuilder() {
             className="btn btn-sm"
             onClick={() => {
               setChangedIds(new Set());
-              try { window.localStorage.removeItem("seegmap-anatomy-builder-changes"); } catch {}
+              try { window.localStorage.removeItem(queueKey(figure)); } catch {}
               setStatus("Builder export queue cleared. Library records were not changed.");
             }}
             disabled={!changedIds.size}
@@ -323,11 +337,11 @@ export default function AnatomyBuilder() {
           <div style={{ border: "1px solid var(--line-strong)", borderRadius: 10, overflow: "hidden", background: "#fff" }}>
             <svg viewBox={`0 0 ${REF_W} ${REF_H}`} width="100%" style={{ display: "block", width: "100%", height: "auto", minHeight: 350, cursor: "crosshair" }} onClick={handleCanvasClick}>
               <image href={imageHref} x={0} y={0} width={REF_W} height={REF_H} />
-              <circle cx={draft.entryX} cy={draft.entryY} r={12} fill="var(--accent)" stroke="#fff" strokeWidth={3} />
-              <line x1={draft.targetX - 12} y1={draft.targetY - 12} x2={draft.targetX + 12} y2={draft.targetY + 12} stroke="var(--danger)" strokeWidth={5} />
-              <line x1={draft.targetX - 12} y1={draft.targetY + 12} x2={draft.targetX + 12} y2={draft.targetY - 12} stroke="var(--danger)" strokeWidth={5} />
-              <text x={draft.entryX + 16} y={draft.entryY - 12} fontSize={18} fontWeight={700} fill="var(--accent)" stroke="#fff" strokeWidth={4} paintOrder="stroke">ENTRY</text>
-              <text x={draft.targetX + 16} y={draft.targetY - 12} fontSize={18} fontWeight={700} fill="var(--danger)" stroke="#fff" strokeWidth={4} paintOrder="stroke">TARGET</text>
+              <circle cx={draft.entryX} cy={draft.entryY} r={12 * unit} fill="var(--accent)" stroke="#fff" strokeWidth={3 * unit} />
+              <line x1={draft.targetX - 12 * unit} y1={draft.targetY - 12 * unit} x2={draft.targetX + 12 * unit} y2={draft.targetY + 12 * unit} stroke="var(--danger)" strokeWidth={5 * unit} />
+              <line x1={draft.targetX - 12 * unit} y1={draft.targetY + 12 * unit} x2={draft.targetX + 12 * unit} y2={draft.targetY - 12 * unit} stroke="var(--danger)" strokeWidth={5 * unit} />
+              <text x={draft.entryX + 16 * unit} y={draft.entryY - 12 * unit} fontSize={18 * unit} fontWeight={700} fill="var(--accent)" stroke="#fff" strokeWidth={4 * unit} paintOrder="stroke">ENTRY</text>
+              <text x={draft.targetX + 16 * unit} y={draft.targetY - 12 * unit} fontSize={18 * unit} fontWeight={700} fill="var(--danger)" stroke="#fff" strokeWidth={4 * unit} paintOrder="stroke">TARGET</text>
             </svg>
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, fontSize: 11, color: "var(--muted)" }}>

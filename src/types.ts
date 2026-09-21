@@ -1,8 +1,17 @@
 // Core data model for sEEGmap.
-// Coordinates are normalized (0..1) relative to the full brain-template.png image,
-// which is the single master coordinate system for the whole workspace.
+// Coordinates are normalized (0..1) relative to the full brain figure image (the
+// currently selected FigureId), which is the single master coordinate system for the
+// whole workspace.
 
 export type Point = { x: number; y: number };
+
+/**
+ * Which brain figure a plan / library is drawn on.
+ *  - "legacy": the original brain-template.png (1770 x 1281 px)
+ *  - "v2":     the newer, more detailed brain-template-v2.png (3147 x 1903 px)
+ * Plans made before figures existed are always "legacy".
+ */
+export type FigureId = "legacy" | "v2";
 
 export type ElectrodeType = "lateral-medial" | "superior-inferior" | "grid";
 
@@ -96,6 +105,8 @@ export interface AnatomyRecord {
   comments: string;
   electrodeName: string;
   fileOrder: number;
+  /** Which figure's library this record belongs to. Missing on old records = "legacy". */
+  figure?: FigureId;
 }
 
 export interface AppConfig {
@@ -143,6 +154,8 @@ export interface SeegPlanFile {
   sketches: FreehandSketch[];
   /** Optional: absent in files written before text annotations existed. */
   texts?: TextAnnotation[];
+  /** Optional: which figure the plan was made on. Absent in older files = "legacy". */
+  figure?: FigureId;
 }
 
 export const CURRENT_FORMAT_VERSION = "1.0";

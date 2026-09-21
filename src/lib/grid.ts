@@ -5,11 +5,14 @@
 // both axes -- so rotation never distorts the array and a square grid stays square on the
 // non-square template image.
 //
-// Everything here works in REF pixel space (0..REF_W, 0..REF_H), which is exactly the SVG
-// viewBox used by BrainCanvas, so results can be drawn directly.
+// Everything here works in canvas space (0..REF_W, 0..refH), which is exactly the SVG
+// viewBox used by BrainCanvas, so results can be drawn directly. REF_W is the same for every
+// figure but the canvas height (`refH`) follows the active figure's aspect ratio, so any
+// function that converts between normalized and pixel coordinates takes it explicitly --
+// get it from canvasHeight(figure) (lib/figures) or the useCanvasHeight() hook.
 
 import type { GridElectrode, Point } from "../types";
-import { REF_H, REF_W } from "./constants";
+import { REF_W } from "./constants";
 
 /** Default center-to-center contact spacing, in REF pixels, for a newly created array. */
 export const DEFAULT_CONTACT_SPACING_PX = 42;
@@ -32,12 +35,12 @@ export interface GridContact {
   y: number;
 }
 
-export function toPixels(p: Point): PixelPoint {
-  return { x: p.x * REF_W, y: p.y * REF_H };
+export function toPixels(p: Point, refH: number): PixelPoint {
+  return { x: p.x * REF_W, y: p.y * refH };
 }
 
-export function toNormalized(p: PixelPoint): Point {
-  return { x: p.x / REF_W, y: p.y / REF_H };
+export function toNormalized(p: PixelPoint, refH: number): Point {
+  return { x: p.x / REF_W, y: p.y / refH };
 }
 
 /** Array size in REF pixels. */
@@ -54,28 +57,28 @@ export function rotateVec(vx: number, vy: number, degrees: number): PixelPoint {
 }
 
 /** Map a point from the array's local frame (origin at center, pixels) into REF pixel space. */
-export function localToPixels(grid: GridElectrode, lx: number, ly: number): PixelPoint {
-  const c = toPixels(grid.center);
+export function localToPixels(grid: GridElectrode, lx: number, ly: number, refH: number): PixelPoint {
+  const c = toPixels(grid.center, refH);
   const r = rotateVec(lx, ly, grid.rotation);
   return { x: c.x + r.x, y: c.y + r.y };
 }
 
 /** Map a REF-pixel point into the array's local frame (origin at center, pixels). */
-export function pixelsToLocal(grid: GridElectrode, p: PixelPoint): PixelPoint {
-  const c = toPixels(grid.center);
+export function pixelsToLocal(grid: GridElectrode, p: PixelPoint, refH: number): PixelPoint {
+  const c = toPixels(grid.center, refH);
   return rotateVec(p.x - c.x, p.y - c.y, -grid.rotation);
 }
 
 /** Corners in REF pixel space, ordered TL, TR, BR, BL in the array's local frame. */
-export function gridCorners(grid: GridElectrode): PixelPoint[] {
+export function gridCorners(grid: GridElectrode, refH: number): PixelPoint[] {
   const { w, h } = gridSizePx(grid);
   const hw = w / 2;
   const hh = h / 2;
   return [
-    localToPixels(grid, -hw, -hh),
-    localToPixels(grid, hw, -hh),
-    localToPixels(grid, hw, hh),
-    localToPixels(grid, -hw, hh),
+    localToPixels(grid, -hw, -hh, refH),
+    localToPixels(grid, hw, -hh, refH),
+    localToPixels(grid, hw, hh, refH),
+    localToPixels(grid, -hw, hh, refH),
   ];
 }
 
@@ -88,7 +91,7 @@ export const CORNER_SIGNS: ReadonlyArray<readonly [number, number]> = [
 ];
 
 /** Contact centers in REF pixel space, numbered row-major from the local top-left. */
-export function gridContacts(grid: GridElectrode): GridContact[] {
+export function gridContacts(grid: GridElectrode, refH: number): GridContact[] {
   const { w, h } = gridSizePx(grid);
   const rows = Math.max(1, Math.round(grid.rows));
   const cols = Math.max(1, Math.round(grid.cols));
@@ -99,7 +102,7 @@ export function gridContacts(grid: GridElectrode): GridContact[] {
     for (let col = 0; col < cols; col++) {
       const lx = -w / 2 + (col + 0.5) * cellW;
       const ly = -h / 2 + (row + 0.5) * cellH;
-      const p = localToPixels(grid, lx, ly);
+      const p = localToPixels(grid, lx, ly, refH);
       out.push({ number: row * cols + col + 1, row, col, x: p.x, y: p.y });
     }
   }
@@ -116,9 +119,9 @@ export function contactRadiusPx(grid: GridElectrode): number {
 }
 
 /** Rotation handle position, in REF pixels: centered above the local top edge. */
-export function rotationHandlePx(grid: GridElectrode): PixelPoint {
+export function rotationHandlePx(grid: GridElectrode, refH: number): PixelPoint {
   const { h } = gridSizePx(grid);
-  return localToPixels(grid, 0, -h / 2 - 46);
+  return localToPixels(grid, 0, -h / 2 - 46, refH);
 }
 
 /**
@@ -129,13 +132,14 @@ export function resizeFromCorner(
   grid: GridElectrode,
   cornerIndex: number,
   pointerPx: PixelPoint,
+  refH: number,
   keepAspect = false
 ): { center: Point; width: number; height: number } {
   const { w, h } = gridSizePx(grid);
   const [sx, sy] = CORNER_SIGNS[cornerIndex] ?? CORNER_SIGNS[0];
 
   // Pinned corner (the opposite one), in REF pixels.
-  const anchor = localToPixels(grid, (-sx * w) / 2, (-sy * h) / 2);
+  const anchor = localToPixels(grid, (-sx * w) / 2, (-sy * h) / 2, refH);
 
   // Pointer relative to the anchor, expressed in the array's unrotated frame.
   const d = rotateVec(pointerPx.x - anchor.x, pointerPx.y - anchor.y, -grid.rotation);
@@ -153,15 +157,15 @@ export function resizeFromCorner(
   const centerPx = { x: anchor.x + rot.x, y: anchor.y + rot.y };
 
   return {
-    center: clampNormalized(toNormalized(centerPx)),
+    center: clampNormalized(toNormalized(centerPx, refH)),
     width: newW / REF_W,
     height: newH / REF_W,
   };
 }
 
 /** Rotation (degrees) that points the array's local "up" axis at the pointer. */
-export function rotationFromPointer(grid: GridElectrode, pointerPx: PixelPoint, snap = false): number {
-  const c = toPixels(grid.center);
+export function rotationFromPointer(grid: GridElectrode, pointerPx: PixelPoint, refH: number, snap = false): number {
+  const c = toPixels(grid.center, refH);
   const deg = (Math.atan2(pointerPx.y - c.y, pointerPx.x - c.x) * 180) / Math.PI + 90;
   const normalized = ((deg % 360) + 360) % 360;
   return snap ? Math.round(normalized / 15) * 15 : Math.round(normalized * 10) / 10;

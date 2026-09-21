@@ -1,13 +1,15 @@
 import PptxGenJS from "pptxgenjs";
 import { cropHalf, fetchImageAsDataUrl, getImageSize, rasterizeSketches } from "./capture";
-import { REF_H, REF_W } from "../constants";
+import { REF_W } from "../constants";
+import { FIGURES, canvasHeight } from "../figures";
 import { stripHash } from "../color";
 import { centroid } from "../geometry";
 import { contactRadiusPx, gridContacts, gridCorners, gridSizePx, localToPixels } from "../grid";
-import { REF_H as GRID_REF_H, REF_W as GRID_REF_W } from "../constants";
-import type { Electrode, FreehandSketch, GridElectrode, Point, TextAnnotation } from "../../types";
+import type { Electrode, FigureId, FreehandSketch, GridElectrode, Point, TextAnnotation } from "../../types";
 
 interface PptxOptions {
+  /** Which brain figure the plan is drawn on -- picks the background image and canvas aspect. */
+  figure: FigureId;
   electrodes: Electrode[];
   sketches: FreehandSketch[];
   texts: TextAnnotation[];
@@ -66,6 +68,7 @@ function sideOfElectrode(e: Electrode): "L" | "R" {
 }
 
 export async function exportWorkspacePptx({
+  figure,
   electrodes,
   sketches,
   texts,
@@ -80,12 +83,15 @@ export async function exportWorkspacePptx({
   pptx.layout = "SEEGMAP_16x9";
 
   const base = (import.meta as unknown as { env: { BASE_URL: string } }).env.BASE_URL;
-  const bgFull = await fetchImageAsDataUrl(`${base}brain-template.png`);
+  // Canvas space (REF_W x REF_H) is what marker/label sizes and grid geometry are measured in.
+  const REF_H = canvasHeight(figure);
+  const bgFull = await fetchImageAsDataUrl(`${base}${FIGURES[figure].imageFile}`);
   const bgLeft = await cropHalf(bgFull, "left");
   const bgRight = await cropHalf(bgFull, "right");
   const fullSize = await getImageSize(bgFull);
 
-  const sketchOverlayFull = rasterizeSketches(sketches, REF_W, REF_H);
+  // Rasterized at the image's own pixel size so the sketch fills stay as sharp as the background.
+  const sketchOverlayFull = rasterizeSketches(sketches, fullSize.width, fullSize.height);
   const sketchOverlayLeft = sketchOverlayFull ? await cropHalf(sketchOverlayFull, "left") : null;
   const sketchOverlayRight = sketchOverlayFull ? await cropHalf(sketchOverlayFull, "right") : null;
 
@@ -165,13 +171,13 @@ export async function exportWorkspacePptx({
     toSlide: (p: Point) => { x: number; y: number },
     pxScale: number
   ) {
-    const px = (p: { x: number; y: number }) => toSlide({ x: p.x / GRID_REF_W, y: p.y / GRID_REF_H });
-    const corners = gridCorners(grid).map(px);
+    const px = (p: { x: number; y: number }) => toSlide({ x: p.x / REF_W, y: p.y / REF_H });
+    const corners = gridCorners(grid, REF_H).map(px);
     for (let i = 0; i < corners.length; i++) {
       addSegment(slide, corners[i], corners[(i + 1) % corners.length], grid.color, 1.5);
     }
     const rIn = contactRadiusPx(grid) * pxScale;
-    gridContacts(grid).forEach((c) => {
+    gridContacts(grid, REF_H).forEach((c) => {
       const p = px({ x: c.x, y: c.y });
       slide.addShape("ellipse", {
         x: p.x - rIn,
@@ -184,7 +190,7 @@ export async function exportWorkspacePptx({
     });
     if (showNames) {
       const { h } = gridSizePx(grid);
-      const label = px(localToPixels(grid, 0, -h / 2 - 18));
+      const label = px(localToPixels(grid, 0, -h / 2 - 18, REF_H));
       addNameLabel(slide, label, grid.name, grid.color, false);
     }
   }

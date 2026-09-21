@@ -1,8 +1,10 @@
 import { useRef, useState } from "react";
 import Papa from "papaparse";
 import { useStore } from "../store/useStore";
-import type { AnatomyRecord } from "../types";
+import type { AnatomyRecord, FigureId } from "../types";
+import { FIGURES } from "../lib/figures";
 import AnatomyBuilder from "../components/AnatomyBuilder";
+import FigureSegmented from "../components/FigureSegmented";
 import SuperiorInferiorBuilder from "../components/SuperiorInferiorBuilder";
 
 const emptyDraft = {
@@ -18,11 +20,18 @@ const emptyDraft = {
 };
 
 export default function AnatomyLibraryPage() {
-  const anatomy = useStore((s) => s.anatomy);
+  // Each figure has its own library. This page starts on the figure the planner is using,
+  // but browsing/editing here is independent of it -- it never switches the planner's figure.
+  const activeFigure = useStore((s) => s.figure);
+  const [libFigure, setLibFigure] = useState<FigureId>(activeFigure);
+  const cfg = FIGURES[libFigure];
+  const anatomy = useStore((s) => s.libraries[libFigure].anatomy);
   const addAnatomyRecord = useStore((s) => s.addAnatomyRecord);
   const updateAnatomyRecord = useStore((s) => s.updateAnatomyRecord);
   const removeAnatomyRecord = useStore((s) => s.removeAnatomyRecord);
   const replaceAnatomyLibrary = useStore((s) => s.replaceAnatomyLibrary);
+  const restoreShippedAnatomy = useStore((s) => s.restoreShippedAnatomy);
+  const [notice, setNotice] = useState("");
 
   const [query, setQuery] = useState("");
   const [tab, setTab] = useState<"library" | "builder" | "si-builder">("library");
@@ -59,12 +68,37 @@ export default function AnatomyLibraryPage() {
     setEditingId(null);
   };
 
+  const chooseFigure = (id: FigureId) => {
+    if (id === libFigure) return;
+    setLibFigure(id);
+    setQuery("");
+    setNotice("");
+    cancel();
+  };
+
+  const resetToShipped = async () => {
+    if (
+      !window.confirm(
+        `Replace the ${cfg.label.toLowerCase()} library saved in this browser with the shipped defaults from ${cfg.libraryFile}?\n\n` +
+          "Any edits you made to this library here will be lost. The other figure's library is not affected."
+      )
+    ) {
+      return;
+    }
+    try {
+      const n = await restoreShippedAnatomy(libFigure);
+      setNotice(`Reset the ${cfg.label.toLowerCase()} library to ${n} shipped record${n === 1 ? "" : "s"} from ${cfg.libraryFile}.`);
+    } catch (err) {
+      setNotice(err instanceof Error ? err.message : "Could not reload the shipped library.");
+    }
+  };
+
   const saveDraft = () => {
     if (!draft.targetName.trim()) return;
     if (editingId) {
-      updateAnatomyRecord(editingId, draft);
+      updateAnatomyRecord(editingId, draft, libFigure);
     } else {
-      addAnatomyRecord(draft);
+      addAnatomyRecord(draft, libFigure);
     }
     cancel();
   };
@@ -83,11 +117,11 @@ export default function AnatomyLibraryPage() {
         Comments: a.comments,
       }))
     );
-    downloadBlob(csv, "anatomy-library.csv", "text/csv");
+    downloadBlob(csv, cfg.libraryFile, "text/csv");
   };
 
   const exportJson = () => {
-    downloadBlob(JSON.stringify(anatomy, null, 2), "anatomy-library.json", "application/json");
+    downloadBlob(JSON.stringify(anatomy, null, 2), cfg.libraryFile.replace(/\.csv$/, ".json"), "application/json");
   };
 
   const importCsv = async (file: File) => {
@@ -104,13 +138,13 @@ export default function AnatomyLibraryPage() {
       category: row.Category ?? "",
       comments: row.Comments ?? "",
     }));
-    replaceAnatomyLibrary(records);
+    replaceAnatomyLibrary(records, libFigure);
   };
 
   const importJson = async (file: File) => {
     const text = await file.text();
     const records = JSON.parse(text) as AnatomyRecord[];
-    replaceAnatomyLibrary(records.map(({ id: _id, electrodeName, ...rest }) => ({ electrodeName: electrodeName ?? "", ...rest })));
+    replaceAnatomyLibrary(records.map(({ id: _id, electrodeName, ...rest }) => ({ electrodeName: electrodeName ?? "", ...rest })), libFigure);
   };
 
   return (
@@ -119,7 +153,8 @@ export default function AnatomyLibraryPage() {
         <div>
           <h1 style={{ fontSize: 22, margin: 0 }}>Anatomical Library</h1>
           <p style={{ color: "var(--muted)", fontSize: 13.5, margin: "4px 0 0" }}>
-            {anatomy.length} record{anatomy.length === 1 ? "" : "s"}. Coordinates are placeholder / best-effort --
+            {anatomy.length} record{anatomy.length === 1 ? "" : "s"} in the {cfg.label.toLowerCase()} library.
+            Coordinates are in that figure's pixels ({cfg.width} × {cfg.height}) and are placeholder / best-effort --
             verify against the template before clinical use.
           </p>
         </div>
@@ -135,6 +170,9 @@ export default function AnatomyLibraryPage() {
           </button>
           <button className="btn btn-sm" onClick={exportJson}>
             Export JSON
+          </button>
+          <button className="btn btn-sm" onClick={resetToShipped} title={`Reload ${cfg.libraryFile} from the deployed site`}>
+            Reset to shipped
           </button>
           <button className="btn btn-sm btn-primary" onClick={startAdd}>
             + Add
@@ -155,6 +193,15 @@ export default function AnatomyLibraryPage() {
           onChange={(e) => e.target.files?.[0] && importJson(e.target.files[0])}
         />
       </div>
+
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 16, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 12.5, color: "var(--muted)" }}>Library for</span>
+        <FigureSegmented value={libFigure} onChange={chooseFigure} full />
+        <span style={{ fontSize: 12, color: "var(--muted)" }}>
+          {cfg.libraryFile} · {cfg.siRegionsFile}
+        </span>
+      </div>
+      {notice && <div style={{ marginTop: 10, fontSize: 12.5, color: "var(--accent)" }}>{notice}</div>}
 
       <div style={{ display: "flex", gap: 4, marginTop: 18, borderBottom: "1px solid var(--line)" }}>
         <button
@@ -193,9 +240,9 @@ export default function AnatomyLibraryPage() {
       </div>
 
       {tab === "builder" ? (
-        <AnatomyBuilder />
+        <AnatomyBuilder key={libFigure} figure={libFigure} />
       ) : tab === "si-builder" ? (
-        <SuperiorInferiorBuilder />
+        <SuperiorInferiorBuilder key={libFigure} figure={libFigure} />
       ) : (
         <>
       <input
@@ -238,7 +285,7 @@ export default function AnatomyLibraryPage() {
               <input value={draft.category} onChange={(e) => setDraft({ ...draft, category: e.target.value })} />
             </div>
             <div className="field">
-              <label>Target X / Y (reference px)</label>
+              <label>Target X / Y ({cfg.width}×{cfg.height} px)</label>
               <div style={{ display: "flex", gap: 8 }}>
                 <input
                   type="number"
@@ -253,7 +300,7 @@ export default function AnatomyLibraryPage() {
               </div>
             </div>
             <div className="field">
-              <label>Entry X / Y (reference px)</label>
+              <label>Entry X / Y ({cfg.width}×{cfg.height} px)</label>
               <div style={{ display: "flex", gap: 8 }}>
                 <input
                   type="number"

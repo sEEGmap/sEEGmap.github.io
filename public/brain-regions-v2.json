@@ -1,0 +1,15 @@
+{
+  "_comment": "Configuration-driven quadrant map for sEEGplan. bbox = [x0,y0,x1,y1] in reference pixel space (referenceWidth x referenceHeight), scaled from the legacy brain-regions.json by the new/old image size ratio (x 3147/1770, y 1903/1281) to fit brain-template-v2.png; re-measure against the v2 outline if you need tighter first-pass placement. anteriorAtStart=true means fx=0 (left edge of bbox) corresponds to the anterior/frontal pole; set false to flip. Auto-placement subdivides each bbox into a generic Anterior/Middle/Posterior x Superior/Middle/Inferior grid -- it is an approximation for fast first-pass placement only and is not a substitute for verified neuroanatomy. Always confirm/adjust placed markers against the template before clinical use.",
+  "referenceWidth": 3147,
+  "referenceHeight": 1903,
+  "quadrants": {
+    "leftLateral":  { "label": "Left Lateral",  "bbox": [9, 25, 1508, 920],    "anteriorAtStart": true },
+    "rightLateral": { "label": "Right Lateral", "bbox": [1609, 25, 3129, 921], "anteriorAtStart": false },
+    "leftMedial":   { "label": "Left Medial",   "bbox": [9, 1003, 1508, 1894],  "anteriorAtStart": true },
+    "rightMedial":  { "label": "Right Medial",  "bbox": [1609, 1003, 3129, 1894], "anteriorAtStart": false }
+  },
+  "grid": {
+    "columns": ["Anterior", "Middle", "Posterior"],
+    "rows": ["Superior", "Middle", "Inferior"]
+  }
+}
