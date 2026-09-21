@@ -1,60 +1,60 @@
 {
   "LAI": {
     "lateralStart": [
-      240,
-      236
+      425,
+      82
     ],
     "lateralEnd": [
-      576,
-      663
+      707,
+      666
     ],
     "preferredEntry": "Superior Frontal Gyrus",
     "targetName": "Anterior insula - ASG (left)"
   },
   "LPI": {
     "lateralStart": [
-      969,
-      53
+      1264,
+      114
     ],
     "lateralEnd": [
-      713,
-      648
+      836,
+      666
     ],
     "preferredEntry": "Superior parietal lobule",
     "targetName": "Posterior insula (left)"
   },
   "LFOA": {
     "lateralStart": [
-      43,
-      383
+      82,
+      290
     ],
     "lateralEnd": [
-      292,
-      728
+      296,
+      719
     ],
     "preferredEntry": "Superior frontal gyrus",
     "targetName": "Orbitofrontal (anterior)"
   },
   "RAI": {
     "lateralStart": [
-      2907,
-      236
+      2807,
+      80
     ],
     "lateralEnd": [
-      2571,
-      663
+      2428,
+      654
     ],
     "preferredEntry": "Superior Frontal Gyrus",
     "targetName": "Anterior insula - ASG (left)"
   },
   "RPI": {
     "lateralStart": [
-      2178,
-      53
+      1929,
+      101
     ],
     "lateralEnd": [
-      2434,
-      648
+      2300,
+      668
     ],
     "preferredEntry": "Superior parietal lobule",
     "targetName": "Posterior insula (left)"
@@ -62,11 +62,11 @@
   "RFOA": {
     "lateralStart": [
       3104,
-      383
+      237
     ],
     "lateralEnd": [
-      2855,
-      728
+      2868,
+      710
     ],
     "preferredEntry": "Superior frontal gyrus",
     "targetName": "Orbitofrontal (anterior)"
