@@ -272,23 +272,26 @@ export async function exportWorkspacePptx({
     pxScale: number
   ) {
     list.forEach((e) => {
+      // Mirror the canvas: the per-electrode "showTarget" toggle hides the X marker
+      // (and its name label). Undefined/legacy values are treated as visible.
+      const targetVisible = e.showTarget !== false;
       if (e.type === "grid") {
         addGridArray(slide, e, toSlide, pxScale);
       } else if (e.type === "lateral-medial") {
         const entry = toSlide(e.entry);
         const target = toSlide(e.target);
         addDot(slide, entry, e.color);
-        addTargetX(slide, target, e.color);
+        if (targetVisible) addTargetX(slide, target, e.color);
         if (showNames) {
           addNameLabel(slide, entry, e.name, e.color, true);
-          addNameLabel(slide, target, e.name, e.color, true);
+          if (targetVisible) addNameLabel(slide, target, e.name, e.color, true);
         }
       } else {
         const ls = toSlide(e.lateralStart);
         const le = toSlide(e.lateralEnd);
         addTrajectoryLine(slide, ls, le, e.color);
         addDot(slide, ls, e.color);
-        addTargetX(slide, le, e.color);
+        if (targetVisible) addTargetX(slide, le, e.color);
         if (showNames) {
           addNameLabel(slide, ls, e.name, e.color, false);
         }
