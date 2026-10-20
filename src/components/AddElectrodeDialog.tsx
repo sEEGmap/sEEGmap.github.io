@@ -452,8 +452,16 @@ function LibraryTab({ onDone }: { onDone: () => void }) {
 
   const isAlreadyPlaced = (row: LibraryRow) => {
     const code = row.electrodeName.trim().toUpperCase();
+    // Rows with an electrode code are "added" only if an electrode with that exact
+    // name is currently in the plan. Matching on target name alone is wrong: left and
+    // right library entries share target names (e.g. "Amygdala"), so placing one
+    // hemisphere would wrongly mark its contralateral twin as added.
+    if (code) return electrodes.some((e) => e.name.trim().toUpperCase() === code);
+    // Code-less rows: fall back to target + entry together (still a weak match, but
+    // far less likely to collide across hemispheres than target alone).
+    if (!row.targetName) return false;
     return electrodes.some(
-      (e) => (code && e.name.trim().toUpperCase() === code) || (row.targetName && e.targetName === row.targetName)
+      (e) => e.targetName === row.targetName && (e.entryName || "") === (row.preferredEntry || "")
     );
   };
 
